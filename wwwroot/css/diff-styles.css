@@ -92,6 +92,31 @@
     background-color: #ffeaa7;
 }
 
+/* Character-level highlighting - shown on top of line background */
+.diff-char-inserted {
+    background-color: #28a745;
+    color: #ffffff;
+    font-weight: 600;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+.diff-char-deleted {
+    background-color: #dc3545;
+    color: #ffffff;
+    font-weight: 600;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+.diff-char-modified {
+    background-color: #ffc107;
+    color: #000000;
+    font-weight: 600;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
 .diff-unchanged {
     background-color: #ffffff;
 }
