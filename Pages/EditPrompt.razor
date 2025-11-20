@@ -1,0 +1,173 @@
+@page "/edit-prompt"
+@page "/edit-prompt/{PromptId}"
+@inject IMongoDbService MongoDbService
+@inject NavigationManager Navigation
+
+<PageTitle>Edit Prompt</PageTitle>
+
+<div class="container mt-4">
+    <h2>Edit Prompt</h2>
+
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="alert @(isError ? "alert-danger" : "alert-success") alert-dismissible fade show" role="alert">
+            @message
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="mb-3">
+        <label for="promptId" class="form-label">Prompt ID</label>
+        <input type="text" class="form-control" id="promptId" @bind="promptId" disabled="@isLoading" />
+    </div>
+
+    <div class="mb-3">
+        <label for="promptText" class="form-label">Prompt Text</label>
+        <textarea class="form-control" id="promptText" rows="15" @bind="promptText" disabled="@isLoading"></textarea>
+        @if (string.IsNullOrWhiteSpace(promptText))
+        {
+            <small class="text-danger">Prompt text cannot be empty.</small>
+        }
+    </div>
+
+    <div class="mb-3">
+        @if (currentPrompt != null)
+        {
+            <p class="text-muted">Current Version: <strong>@currentPrompt.Version</strong></p>
+            <p class="text-muted">Last Updated: <strong>@currentPrompt.UpdatedAt.ToString("g")</strong></p>
+        }
+        else
+        {
+            <p class="text-info">This is a new prompt. It will be created as version 1.</p>
+        }
+    </div>
+
+    <div class="mb-3">
+        <button class="btn btn-primary" @onclick="SavePrompt" disabled="@(isLoading || string.IsNullOrWhiteSpace(promptText) || string.IsNullOrWhiteSpace(promptId))">
+            @if (isLoading)
+            {
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <span> Saving...</span>
+            }
+            else
+            {
+                <span>Save Prompt</span>
+            }
+        </button>
+        <button class="btn btn-secondary ms-2" @onclick="LoadPrompt" disabled="@(isLoading || string.IsNullOrWhiteSpace(promptId))">
+            Load Prompt
+        </button>
+        <a href="/prompt-history/@promptId" class="btn btn-info ms-2" style="@(string.IsNullOrWhiteSpace(promptId) || currentPrompt == null ? "display:none;" : "")">
+            View History
+        </a>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string? PromptId { get; set; }
+
+    private string promptId = "default";
+    private string promptText = string.Empty;
+    private Prompt? currentPrompt;
+    private bool isLoading = false;
+    private string message = string.Empty;
+    private bool isError = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrEmpty(PromptId))
+        {
+            promptId = PromptId;
+            await LoadPrompt();
+        }
+    }
+
+    private async Task LoadPrompt()
+    {
+        if (string.IsNullOrWhiteSpace(promptId))
+        {
+            SetMessage("Prompt ID cannot be empty.", true);
+            return;
+        }
+
+        try
+        {
+            isLoading = true;
+            message = string.Empty;
+            currentPrompt = await MongoDbService.GetPromptAsync(promptId);
+            
+            if (currentPrompt != null)
+            {
+                promptText = currentPrompt.Text;
+                SetMessage($"Loaded prompt version {currentPrompt.Version}.", false);
+            }
+            else
+            {
+                promptText = string.Empty;
+                SetMessage("Prompt not found. This will be a new prompt.", false);
+            }
+        }
+        catch (Exception ex)
+        {
+            SetMessage($"Error loading prompt: {ex.Message}", true);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SavePrompt()
+    {
+        if (string.IsNullOrWhiteSpace(promptId))
+        {
+            SetMessage("Prompt ID cannot be empty.", true);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(promptText))
+        {
+            SetMessage("Prompt text cannot be empty.", true);
+            return;
+        }
+
+        try
+        {
+            isLoading = true;
+            message = string.Empty;
+
+            var prompt = new Prompt
+            {
+                PromptId = promptId,
+                Text = promptText
+            };
+
+            // If there's a current prompt, preserve the ID for update
+            if (currentPrompt != null)
+            {
+                prompt.Id = currentPrompt.Id;
+            }
+
+            currentPrompt = await MongoDbService.SavePromptAsync(prompt);
+            promptText = currentPrompt.Text;
+
+            SetMessage($"Prompt saved successfully! Version {currentPrompt.Version} created at {currentPrompt.UpdatedAt:g}", false);
+        }
+        catch (Exception ex)
+        {
+            SetMessage($"Error saving prompt: {ex.Message}", true);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void SetMessage(string msg, bool error)
+    {
+        message = msg;
+        isError = error;
+    }
+}
+

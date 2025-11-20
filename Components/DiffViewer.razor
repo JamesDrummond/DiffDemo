@@ -1,0 +1,76 @@
+@using DiffPlex
+@using DiffPlex.DiffBuilder
+@using DiffPlex.DiffBuilder.Model
+
+<div class="diff-viewer">
+    <div class="mb-3">
+        <div class="btn-group" role="group">
+            <button type="button" 
+                    class="btn @(viewMode == DiffViewMode.SideBySide ? "btn-primary" : "btn-outline-primary")"
+                    @onclick="() => SetViewMode(DiffViewMode.SideBySide)">
+                Side-by-Side
+            </button>
+            <button type="button" 
+                    class="btn @(viewMode == DiffViewMode.Inline ? "btn-primary" : "btn-outline-primary")"
+                    @onclick="() => SetViewMode(DiffViewMode.Inline)">
+                Inline/Unified
+            </button>
+        </div>
+    </div>
+
+    @if (viewMode == DiffViewMode.SideBySide)
+    {
+        <div class="diff-container side-by-side">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="diff-header old-version">Old Version</h6>
+                    <div class="diff-pane old-pane">
+                        @if (sideBySideDiff != null)
+                        {
+                            @foreach (var line in sideBySideDiff.OldText.Lines)
+                            {
+                                <div class="diff-line @GetLineClass(line.Type)">
+                                    <span class="line-number">@line.Position</span>
+                                    <span class="line-content">@FormatLine(line.Text)</span>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="diff-header new-version">New Version</h6>
+                    <div class="diff-pane new-pane">
+                        @if (sideBySideDiff != null)
+                        {
+                            @foreach (var line in sideBySideDiff.NewText.Lines)
+                            {
+                                <div class="diff-line @GetLineClass(line.Type)">
+                                    <span class="line-number">@line.Position</span>
+                                    <span class="line-content">@FormatLine(line.Text)</span>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="diff-container inline">
+            <div class="diff-pane">
+                @if (inlineDiff != null)
+                {
+                    @foreach (var line in inlineDiff.Lines)
+                    {
+                        <div class="diff-line @GetLineClass(line.Type)">
+                            <span class="line-number">@line.Position</span>
+                            <span class="line-content">@FormatLine(line.Text)</span>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    }
+</div>
+

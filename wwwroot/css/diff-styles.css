@@ -1,0 +1,129 @@
+/* Diff Viewer Styles */
+.diff-viewer {
+    margin-top: 1rem;
+}
+
+.diff-container {
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    overflow: hidden;
+}
+
+.diff-header {
+    padding: 0.5rem 1rem;
+    margin: 0;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.diff-header.old-version {
+    background-color: #fff5f5;
+}
+
+.diff-header.new-version {
+    background-color: #f0fff4;
+}
+
+.diff-pane {
+    background-color: #ffffff;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    max-height: 600px;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+.diff-pane.old-pane {
+    border-right: 1px solid #dee2e6;
+}
+
+.diff-line {
+    display: flex;
+    padding: 0.25rem 0.5rem;
+    white-space: pre;
+    min-height: 1.5rem;
+}
+
+.diff-line:hover {
+    background-color: #f8f9fa;
+}
+
+.line-number {
+    display: inline-block;
+    min-width: 3rem;
+    text-align: right;
+    padding-right: 0.75rem;
+    color: #6c757d;
+    user-select: none;
+    background-color: #f8f9fa;
+    margin-right: 0.5rem;
+}
+
+.line-content {
+    flex: 1;
+    word-break: break-all;
+}
+
+/* Diff line types */
+.diff-inserted {
+    background-color: #d4edda !important;
+}
+
+.diff-inserted .line-number {
+    background-color: #c3e6cb;
+}
+
+.diff-deleted {
+    background-color: #f8d7da !important;
+}
+
+.diff-deleted .line-number {
+    background-color: #f5c6cb;
+}
+
+.diff-modified {
+    background-color: #fff3cd !important;
+}
+
+.diff-modified .line-number {
+    background-color: #ffeaa7;
+}
+
+.diff-unchanged {
+    background-color: #ffffff;
+}
+
+/* Side-by-side layout */
+.side-by-side .col-md-6 {
+    padding: 0;
+}
+
+.side-by-side .col-md-6:first-child {
+    border-right: 1px solid #dee2e6;
+}
+
+/* Inline layout */
+.inline .diff-pane {
+    padding: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .side-by-side .row {
+        flex-direction: column;
+    }
+
+    .side-by-side .col-md-6 {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .side-by-side .col-md-6:last-child {
+        border-bottom: none;
+    }
+}
+

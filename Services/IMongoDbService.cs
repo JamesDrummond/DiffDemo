@@ -1,0 +1,13 @@
+using DiffDemo.Models;
+
+namespace DiffDemo.Services;
+
+public interface IMongoDbService
+{
+    Task<Prompt?> GetPromptAsync(string promptId);
+    Task<Prompt> SavePromptAsync(Prompt prompt);
+    Task<List<PromptHistory>> GetPromptHistoryAsync(string promptId);
+    Task<PromptHistory?> GetPromptVersionAsync(string promptId, int version);
+    Task<List<Prompt>> GetAllPromptsAsync();
+}
+
