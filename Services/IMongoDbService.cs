@@ -10,5 +10,6 @@ public interface IMongoDbService
     Task<Prompt?> GetPromptVersionAsync(string promptId, int version);
     Task<List<Prompt>> GetAllPromptsAsync();
     Task<bool> DeletePromptAsync(string promptId);
+    Task<bool> SetPromptActiveByVersionAsync(string promptId, int version);
 }
 

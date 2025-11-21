@@ -23,5 +23,11 @@ public class Prompt
 
     [BsonElement("archivedDateTime")]
     public DateTime? ArchivedDateTime { get; set; }
+
+    [BsonElement("isExperimental")]
+    public bool IsExperimental { get; set; }
+
+    [BsonElement("isActivePrompt")]
+    public bool IsActivePrompt { get; set; }
 }
 

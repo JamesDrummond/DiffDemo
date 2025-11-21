@@ -22,6 +22,15 @@
     }
 
     <div class="mb-3">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="isExperimental" @bind="isExperimental" disabled="@isLoading" />
+            <label class="form-check-label" for="isExperimental">
+                Testmode
+            </label>
+        </div>
+    </div>
+
+    <div class="mb-3">
         <label for="promptId" class="form-label">Prompt ID</label>
         <input type="text" class="form-control" id="promptId" @bind="promptId" disabled="@(isLoading || isExistingPrompt)" readonly="@isExistingPrompt" />
         @if (isExistingPrompt)
@@ -78,6 +87,7 @@
 
     private string promptId = "default";
     private string promptText = string.Empty;
+    private bool isExperimental = false;
     private Prompt? currentPrompt;
     private bool isLoading = false;
     private string message = string.Empty;
@@ -114,6 +124,7 @@
                 if (currentPrompt != null)
                 {
                     promptText = currentPrompt.Text;
+                    isExperimental = currentPrompt.IsExperimental;
                     isExistingPrompt = true;
                     originalPromptId = currentPrompt.PromptId;
                     SetMessage($"Loaded prompt version {currentPrompt.Version}.", false);
@@ -165,7 +176,8 @@
             var prompt = new Prompt
             {
                 PromptId = promptId,
-                Text = promptText
+                Text = promptText,
+                IsExperimental = isExperimental
             };
 
             // Don't set Id - let MongoDB generate a new _id for the new version
@@ -180,6 +192,7 @@
                 if (currentPrompt != null)
                 {
                     promptText = currentPrompt.Text;
+                    isExperimental = currentPrompt.IsExperimental;
                     isExistingPrompt = true;
                     originalPromptId = currentPrompt.PromptId;
                     SetMessage($"Prompt saved successfully! Version {currentPrompt.Version} created at {currentPrompt.UpdatedAt:g}", false);

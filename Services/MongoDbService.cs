@@ -96,5 +96,23 @@ public class MongoDbService : IMongoDbService
 
         return deleteResult.DeletedCount > 0;
     }
+
+    public async Task<bool> SetPromptActiveByVersionAsync(string promptId, int version)
+    {
+        // First, set all versions of this promptId to inactive
+        var allVersionsFilter = Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId);
+        var updateAllToFalse = Builders<Prompt>.Update.Set(p => p.IsActivePrompt, false);
+        await _promptsCollection.UpdateManyAsync(allVersionsFilter, updateAllToFalse);
+
+        // Then, set the specific version to active
+        var versionFilter = Builders<Prompt>.Filter.And(
+            Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId),
+            Builders<Prompt>.Filter.Eq(p => p.Version, version)
+        );
+        var updateToActive = Builders<Prompt>.Update.Set(p => p.IsActivePrompt, true);
+        var updateResult = await _promptsCollection.UpdateOneAsync(versionFilter, updateToActive);
+
+        return updateResult.ModifiedCount > 0;
+    }
 }
 

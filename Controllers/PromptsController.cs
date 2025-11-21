@@ -146,5 +146,42 @@ public class PromptsController : ControllerBase
             return StatusCode(500, new { error = "An error occurred while deleting the prompt", message = ex.Message });
         }
     }
+
+    [HttpPost("{promptId}/versions/{version}/set-active")]
+    public async Task<ActionResult> SetPromptActiveByVersion(string promptId, int version)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(promptId))
+            {
+                return BadRequest(new { error = "PromptId is required" });
+            }
+
+            if (version <= 0)
+            {
+                return BadRequest(new { error = "Version must be greater than 0" });
+            }
+
+            // Verify the version exists
+            var promptVersion = await _mongoDbService.GetPromptVersionAsync(promptId, version);
+            if (promptVersion == null)
+            {
+                return NotFound(new { error = "Prompt version not found", promptId, version });
+            }
+
+            var success = await _mongoDbService.SetPromptActiveByVersionAsync(promptId, version);
+            if (!success)
+            {
+                return StatusCode(500, new { error = "Failed to set prompt as active" });
+            }
+
+            return Ok(new { message = $"Prompt {promptId} version {version} set as active", promptId, version });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error setting prompt {PromptId} version {Version} as active", promptId, version);
+            return StatusCode(500, new { error = "An error occurred while setting the prompt as active", message = ex.Message });
+        }
+    }
 }
 
