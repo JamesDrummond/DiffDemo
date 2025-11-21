@@ -136,7 +136,7 @@ else
                                @onclick="() => SelectVersion(historyItem.Version, historyItem.Text)">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h6 class="mb-1">Version @historyItem.Version</h6>
-                                    <small>@historyItem.ArchivedAt.ToString("g")</small>
+                                    <small>@(historyItem.ArchivedDateTime?.ToString("g") ?? "N/A")</small>
                                 </div>
                                 <p class="mb-1 small">@TruncateText(historyItem.Text, 100)</p>
                             </a>
@@ -219,7 +219,7 @@ else
     public string PromptId { get; set; } = string.Empty;
 
     private Prompt? currentPrompt;
-    private List<Models.PromptHistory> history = new();
+    private List<Prompt> history = new();
     private List<Prompt>? prompts;
     private bool isLoading = false;
     private string message = string.Empty;
@@ -296,8 +296,8 @@ else
             var historyResponse = await Http.GetAsync($"api/prompts/{PromptId}/history");
             if (historyResponse.IsSuccessStatusCode)
             {
-                var historyList = await historyResponse.Content.ReadFromJsonAsync<List<PromptHistory>>();
-                history = historyList ?? new List<PromptHistory>();
+                var historyList = await historyResponse.Content.ReadFromJsonAsync<List<Prompt>>();
+                history = historyList ?? new List<Prompt>();
             }
 
             if (currentPrompt != null)

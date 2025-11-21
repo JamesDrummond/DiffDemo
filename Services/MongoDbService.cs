@@ -9,7 +9,6 @@ public class MongoDbService : IMongoDbService
     private readonly MongoDbSettings _settings;
     private readonly IMongoDatabase _database;
     private readonly IMongoCollection<Prompt> _promptsCollection;
-    private readonly IMongoCollection<PromptHistory> _historyCollection;
 
     public MongoDbService(IMongoClient mongoClient, MongoDbSettings settings)
     {
@@ -17,84 +16,85 @@ public class MongoDbService : IMongoDbService
         _settings = settings;
         _database = _mongoClient.GetDatabase(_settings.DatabaseName);
         _promptsCollection = _database.GetCollection<Prompt>("Prompts");
-        _historyCollection = _database.GetCollection<PromptHistory>("PromptHistory");
     }
 
     public async Task<Prompt?> GetPromptAsync(string promptId)
     {
-        var filter = Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId);
+        // Get the current (non-archived) version of the prompt
+        var filter = Builders<Prompt>.Filter.And(
+            Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId),
+            Builders<Prompt>.Filter.Eq(p => p.ArchivedDateTime, (DateTime?)null)
+        );
         return await _promptsCollection.Find(filter).FirstOrDefaultAsync();
     }
 
     public async Task<Prompt> SavePromptAsync(Prompt prompt)
     {
-        // Check if prompt already exists
+        // Check if prompt already exists (get current active version)
         var existingPrompt = await GetPromptAsync(prompt.PromptId);
 
         if (existingPrompt != null)
         {
-            // Archive the current version to history
-            var historyEntry = new PromptHistory
-            {
-                OriginalPromptId = existingPrompt.PromptId,
-                Version = existingPrompt.Version,
-                Text = existingPrompt.Text,
-                ArchivedAt = DateTime.UtcNow
-            };
+            // Archive the current version by setting ArchivedDateTime
+            existingPrompt.ArchivedDateTime = DateTime.UtcNow;
+            var archiveFilter = Builders<Prompt>.Filter.Eq(p => p.Id, existingPrompt.Id);
+            await _promptsCollection.ReplaceOneAsync(archiveFilter, existingPrompt);
 
-            await _historyCollection.InsertOneAsync(historyEntry);
-
-            // Increment version and update
+            // Create new version - clear Id so MongoDB generates a new _id
+            prompt.Id = null;
             prompt.Version = existingPrompt.Version + 1;
             prompt.UpdatedAt = DateTime.UtcNow;
-            
-            var filter = Builders<Prompt>.Filter.Eq(p => p.PromptId, prompt.PromptId);
-            await _promptsCollection.ReplaceOneAsync(filter, prompt);
+            prompt.ArchivedDateTime = null; // Ensure new version is not archived
+            await _promptsCollection.InsertOneAsync(prompt);
         }
         else
         {
-            // New prompt - set initial version
+            // New prompt - set initial version and ensure Id is null
+            prompt.Id = null;
             prompt.Version = 1;
             prompt.UpdatedAt = DateTime.UtcNow;
+            prompt.ArchivedDateTime = null; // Ensure new prompt is not archived
             await _promptsCollection.InsertOneAsync(prompt);
         }
 
         return prompt;
     }
 
-    public async Task<List<PromptHistory>> GetPromptHistoryAsync(string promptId)
+    public async Task<List<Prompt>> GetPromptHistoryAsync(string promptId)
     {
-        var filter = Builders<PromptHistory>.Filter.Eq(h => h.OriginalPromptId, promptId);
-        var sort = Builders<PromptHistory>.Sort.Descending(h => h.Version);
-        return await _historyCollection.Find(filter).Sort(sort).ToListAsync();
+        // Get all archived versions of the prompt
+        var filter = Builders<Prompt>.Filter.And(
+            Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId),
+            Builders<Prompt>.Filter.Ne(p => p.ArchivedDateTime, (DateTime?)null)
+        );
+        var sort = Builders<Prompt>.Sort.Descending(p => p.Version);
+        return await _promptsCollection.Find(filter).Sort(sort).ToListAsync();
     }
 
-    public async Task<PromptHistory?> GetPromptVersionAsync(string promptId, int version)
+    public async Task<Prompt?> GetPromptVersionAsync(string promptId, int version)
     {
-        var filter = Builders<PromptHistory>.Filter.And(
-            Builders<PromptHistory>.Filter.Eq(h => h.OriginalPromptId, promptId),
-            Builders<PromptHistory>.Filter.Eq(h => h.Version, version)
+        var filter = Builders<Prompt>.Filter.And(
+            Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId),
+            Builders<Prompt>.Filter.Eq(p => p.Version, version)
         );
-        return await _historyCollection.Find(filter).FirstOrDefaultAsync();
+        return await _promptsCollection.Find(filter).FirstOrDefaultAsync();
     }
 
     public async Task<List<Prompt>> GetAllPromptsAsync()
     {
+        // Get only active (non-archived) prompts
+        var filter = Builders<Prompt>.Filter.Eq(p => p.ArchivedDateTime, (DateTime?)null);
         var sort = Builders<Prompt>.Sort.Descending(p => p.UpdatedAt);
-        return await _promptsCollection.Find(_ => true).Sort(sort).ToListAsync();
+        return await _promptsCollection.Find(filter).Sort(sort).ToListAsync();
     }
 
     public async Task<bool> DeletePromptAsync(string promptId)
     {
-        // Delete the prompt
-        var promptFilter = Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId);
-        var promptDeleteResult = await _promptsCollection.DeleteOneAsync(promptFilter);
+        // Delete all versions (both active and archived) of the prompt
+        var filter = Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId);
+        var deleteResult = await _promptsCollection.DeleteManyAsync(filter);
 
-        // Delete all history entries for this prompt
-        var historyFilter = Builders<PromptHistory>.Filter.Eq(h => h.OriginalPromptId, promptId);
-        await _historyCollection.DeleteManyAsync(historyFilter);
-
-        return promptDeleteResult.DeletedCount > 0;
+        return deleteResult.DeletedCount > 0;
     }
 }
 

@@ -20,5 +20,8 @@ public class Prompt
 
     [BsonElement("updatedAt")]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [BsonElement("archivedDateTime")]
+    public DateTime? ArchivedDateTime { get; set; }
 }
 

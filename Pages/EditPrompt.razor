@@ -158,11 +158,8 @@
                 Text = promptText
             };
 
-            // If there's a current prompt, preserve the ID for update
-            if (currentPrompt != null)
-            {
-                prompt.Id = currentPrompt.Id;
-            }
+            // Don't set Id - let MongoDB generate a new _id for the new version
+            // Only PromptId (logical ID) should be preserved
 
             var response = await Http.PostAsJsonAsync("api/prompts", prompt);
             

@@ -77,7 +77,7 @@ public class PromptsController : ControllerBase
     }
 
     [HttpGet("{promptId}/history")]
-    public async Task<ActionResult<List<PromptHistory>>> GetPromptHistory(string promptId)
+    public async Task<ActionResult<List<Prompt>>> GetPromptHistory(string promptId)
     {
         try
         {
@@ -92,7 +92,7 @@ public class PromptsController : ControllerBase
     }
 
     [HttpGet("{promptId}/history/{version}")]
-    public async Task<ActionResult<PromptHistory>> GetPromptVersion(string promptId, int version)
+    public async Task<ActionResult<Prompt>> GetPromptVersion(string promptId, int version)
     {
         try
         {
