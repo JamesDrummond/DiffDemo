@@ -23,7 +23,11 @@
 
     <div class="mb-3">
         <label for="promptId" class="form-label">Prompt ID</label>
-        <input type="text" class="form-control" id="promptId" @bind="promptId" disabled="@isLoading" />
+        <input type="text" class="form-control" id="promptId" @bind="promptId" disabled="@(isLoading || isExistingPrompt)" readonly="@isExistingPrompt" />
+        @if (isExistingPrompt)
+        {
+            <small class="text-muted">Prompt ID cannot be changed once set.</small>
+        }
     </div>
 
     <div class="mb-3">
@@ -78,6 +82,8 @@
     private bool isLoading = false;
     private string message = string.Empty;
     private bool isError = false;
+    private bool isExistingPrompt = false;
+    private string? originalPromptId = null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -108,6 +114,8 @@
                 if (currentPrompt != null)
                 {
                     promptText = currentPrompt.Text;
+                    isExistingPrompt = true;
+                    originalPromptId = currentPrompt.PromptId;
                     SetMessage($"Loaded prompt version {currentPrompt.Version}.", false);
                 }
             }
@@ -115,6 +123,8 @@
             {
                 currentPrompt = null;
                 promptText = string.Empty;
+                isExistingPrompt = false;
+                originalPromptId = null;
                 SetMessage("Prompt not found. This will be a new prompt.", false);
             }
             else
@@ -160,6 +170,7 @@
 
             // Don't set Id - let MongoDB generate a new _id for the new version
             // Only PromptId (logical ID) should be preserved
+            // The PromptId cannot be changed because the field is readonly when editing existing prompts
 
             var response = await Http.PostAsJsonAsync("api/prompts", prompt);
             
@@ -169,6 +180,8 @@
                 if (currentPrompt != null)
                 {
                     promptText = currentPrompt.Text;
+                    isExistingPrompt = true;
+                    originalPromptId = currentPrompt.PromptId;
                     SetMessage($"Prompt saved successfully! Version {currentPrompt.Version} created at {currentPrompt.UpdatedAt:g}", false);
                 }
             }
