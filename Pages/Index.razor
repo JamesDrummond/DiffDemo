@@ -1,6 +1,6 @@
 ﻿@page "/"
 @page "/prompt-history/{PromptId}"
-@inject IMongoDbService MongoDbService
+@inject HttpClient Http
 @inject NavigationManager Navigation
 
 <PageTitle>@(string.IsNullOrWhiteSpace(PromptId) ? "All Prompts" : "Prompt History")</PageTitle>
@@ -259,7 +259,8 @@ else
         {
             isLoading = true;
             message = string.Empty;
-            prompts = await MongoDbService.GetAllPromptsAsync();
+            var response = await Http.GetFromJsonAsync<List<Prompt>>("api/prompts");
+            prompts = response ?? new List<Prompt>();
         }
         catch (Exception ex)
         {
@@ -284,8 +285,18 @@ else
             isLoading = true;
             message = string.Empty;
 
-            currentPrompt = await MongoDbService.GetPromptAsync(PromptId);
-            history = await MongoDbService.GetPromptHistoryAsync(PromptId);
+            var promptResponse = await Http.GetAsync($"api/prompts/{PromptId}");
+            if (promptResponse.IsSuccessStatusCode)
+            {
+                currentPrompt = await promptResponse.Content.ReadFromJsonAsync<Prompt>();
+            }
+
+            var historyResponse = await Http.GetAsync($"api/prompts/{PromptId}/history");
+            if (historyResponse.IsSuccessStatusCode)
+            {
+                var historyList = await historyResponse.Content.ReadFromJsonAsync<List<PromptHistory>>();
+                history = historyList ?? new List<PromptHistory>();
+            }
 
             if (currentPrompt != null)
             {

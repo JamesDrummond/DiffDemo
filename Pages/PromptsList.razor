@@ -1,5 +1,5 @@
 @page "/prompts"
-@inject IMongoDbService MongoDbService
+@inject HttpClient Http
 @inject NavigationManager Navigation
 
 <PageTitle>All Prompts</PageTitle>
@@ -91,7 +91,8 @@
         {
             isLoading = true;
             message = string.Empty;
-            prompts = await MongoDbService.GetAllPromptsAsync();
+            var response = await Http.GetFromJsonAsync<List<Prompt>>("api/prompts");
+            prompts = response ?? new List<Prompt>();
         }
         catch (Exception ex)
         {

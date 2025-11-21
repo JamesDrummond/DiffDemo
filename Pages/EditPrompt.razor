@@ -1,6 +1,6 @@
 @page "/edit-prompt"
 @page "/edit-prompt/{PromptId}"
-@inject IMongoDbService MongoDbService
+@inject HttpClient Http
 @inject NavigationManager Navigation
 
 <PageTitle>Edit Prompt</PageTitle>
@@ -100,17 +100,27 @@
         {
             isLoading = true;
             message = string.Empty;
-            currentPrompt = await MongoDbService.GetPromptAsync(promptId);
+            var response = await Http.GetAsync($"api/prompts/{promptId}");
             
-            if (currentPrompt != null)
+            if (response.IsSuccessStatusCode)
             {
-                promptText = currentPrompt.Text;
-                SetMessage($"Loaded prompt version {currentPrompt.Version}.", false);
+                currentPrompt = await response.Content.ReadFromJsonAsync<Prompt>();
+                if (currentPrompt != null)
+                {
+                    promptText = currentPrompt.Text;
+                    SetMessage($"Loaded prompt version {currentPrompt.Version}.", false);
+                }
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                currentPrompt = null;
+                promptText = string.Empty;
+                SetMessage("Prompt not found. This will be a new prompt.", false);
             }
             else
             {
-                promptText = string.Empty;
-                SetMessage("Prompt not found. This will be a new prompt.", false);
+                var errorContent = await response.Content.ReadAsStringAsync();
+                SetMessage($"Error loading prompt: {errorContent}", true);
             }
         }
         catch (Exception ex)
@@ -154,10 +164,22 @@
                 prompt.Id = currentPrompt.Id;
             }
 
-            currentPrompt = await MongoDbService.SavePromptAsync(prompt);
-            promptText = currentPrompt.Text;
-
-            SetMessage($"Prompt saved successfully! Version {currentPrompt.Version} created at {currentPrompt.UpdatedAt:g}", false);
+            var response = await Http.PostAsJsonAsync("api/prompts", prompt);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                currentPrompt = await response.Content.ReadFromJsonAsync<Prompt>();
+                if (currentPrompt != null)
+                {
+                    promptText = currentPrompt.Text;
+                    SetMessage($"Prompt saved successfully! Version {currentPrompt.Version} created at {currentPrompt.UpdatedAt:g}", false);
+                }
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                SetMessage($"Error saving prompt: {errorContent}", true);
+            }
         }
         catch (Exception ex)
         {
