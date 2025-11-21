@@ -135,6 +135,58 @@
     padding: 0;
 }
 
+/* Enhanced Diff Viewer Card Styles */
+.diff-view-card {
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.diff-view-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 1rem 1.5rem;
+}
+
+.diff-view-body {
+    padding: 1rem;
+}
+
+.diff-controls-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.diff-control-group {
+    display: flex;
+    align-items: center;
+}
+
+.diff-control-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    font-weight: 500;
+    margin: 0;
+}
+
+.diff-control-separator {
+    width: 1px;
+    height: 1.5rem;
+    background-color: #dee2e6;
+}
+
+.empty-state-card {
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.empty-state-card .card-body {
+    padding: 3rem 1.5rem;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .side-by-side .row {
@@ -149,6 +201,15 @@
 
     .side-by-side .col-md-6:last-child {
         border-bottom: none;
+    }
+
+    .diff-controls-container {
+        width: 100%;
+        margin-top: 1rem;
+    }
+
+    .diff-control-separator {
+        display: none;
     }
 }
 

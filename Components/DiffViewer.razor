@@ -3,20 +3,6 @@
 @using DiffPlex.DiffBuilder.Model
 
 <div class="diff-viewer">
-    <div class="mb-3">
-        <div class="btn-group" role="group">
-            <button type="button" 
-                    class="btn @(viewMode == DiffViewMode.SideBySide ? "btn-primary" : "btn-outline-primary")"
-                    @onclick="() => SetViewMode(DiffViewMode.SideBySide)">
-                Side-by-Side
-            </button>
-            <button type="button" 
-                    class="btn @(viewMode == DiffViewMode.Inline ? "btn-primary" : "btn-outline-primary")"
-                    @onclick="() => SetViewMode(DiffViewMode.Inline)">
-                Inline/Unified
-            </button>
-        </div>
-    </div>
 
     @if (viewMode == DiffViewMode.SideBySide)
     {
@@ -30,7 +16,10 @@
                             @foreach (var line in sideBySideDiff.OldText.Lines)
                             {
                                 <div class="diff-line @GetLineClass(line.Type)">
-                                    <span class="line-number">@line.Position</span>
+                                    @if (ShowLineNumbers)
+                                    {
+                                        <span class="line-number">@line.Position</span>
+                                    }
                                     <span class="line-content">@((MarkupString)FormatLineWithSubPieces(line))</span>
                                 </div>
                             }
@@ -45,7 +34,10 @@
                             @foreach (var line in sideBySideDiff.NewText.Lines)
                             {
                                 <div class="diff-line @GetLineClass(line.Type)">
-                                    <span class="line-number">@line.Position</span>
+                                    @if (ShowLineNumbers)
+                                    {
+                                        <span class="line-number">@line.Position</span>
+                                    }
                                     <span class="line-content">@((MarkupString)FormatLineWithSubPieces(line))</span>
                                 </div>
                             }
@@ -64,7 +56,10 @@
                     @foreach (var line in inlineDiff.Lines)
                     {
                         <div class="diff-line @GetLineClass(line.Type)">
-                            <span class="line-number">@line.Position</span>
+                            @if (ShowLineNumbers)
+                            {
+                                <span class="line-number">@line.Position</span>
+                            }
                             <span class="line-content">@((MarkupString)FormatLineWithSubPieces(line))</span>
                         </div>
                     }

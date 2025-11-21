@@ -13,13 +13,19 @@ public partial class DiffViewer : ComponentBase
     [Parameter]
     public string NewText { get; set; } = string.Empty;
 
-    private enum DiffViewMode
+    [Parameter]
+    public DiffViewMode ViewMode { get; set; } = DiffViewMode.SideBySide;
+
+    [Parameter]
+    public bool ShowLineNumbers { get; set; } = true;
+
+    public enum DiffViewMode
     {
         SideBySide,
         Inline
     }
 
-    private DiffViewMode viewMode = DiffViewMode.SideBySide;
+    private DiffViewMode viewMode => ViewMode;
     private SideBySideDiffModel? sideBySideDiff;
     private DiffPaneModel? inlineDiff;
     private readonly Differ differ = new Differ();
@@ -48,12 +54,6 @@ public partial class DiffViewer : ComponentBase
             var builder = new InlineDiffBuilder(differ);
             inlineDiff = builder.BuildDiffModel(OldText ?? string.Empty, NewText ?? string.Empty);
         }
-    }
-
-    private void SetViewMode(DiffViewMode mode)
-    {
-        viewMode = mode;
-        BuildDiff();
     }
 
     private string GetLineClass(ChangeType changeType)
