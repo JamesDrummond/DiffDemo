@@ -83,5 +83,18 @@ public class MongoDbService : IMongoDbService
         var sort = Builders<Prompt>.Sort.Descending(p => p.UpdatedAt);
         return await _promptsCollection.Find(_ => true).Sort(sort).ToListAsync();
     }
+
+    public async Task<bool> DeletePromptAsync(string promptId)
+    {
+        // Delete the prompt
+        var promptFilter = Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId);
+        var promptDeleteResult = await _promptsCollection.DeleteOneAsync(promptFilter);
+
+        // Delete all history entries for this prompt
+        var historyFilter = Builders<PromptHistory>.Filter.Eq(h => h.OriginalPromptId, promptId);
+        await _historyCollection.DeleteManyAsync(historyFilter);
+
+        return promptDeleteResult.DeletedCount > 0;
+    }
 }
 

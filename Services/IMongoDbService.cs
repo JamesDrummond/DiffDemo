@@ -9,5 +9,6 @@ public interface IMongoDbService
     Task<List<PromptHistory>> GetPromptHistoryAsync(string promptId);
     Task<PromptHistory?> GetPromptVersionAsync(string promptId, int version);
     Task<List<Prompt>> GetAllPromptsAsync();
+    Task<bool> DeletePromptAsync(string promptId);
 }
 

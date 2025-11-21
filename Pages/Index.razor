@@ -2,6 +2,7 @@
 @page "/prompt-history/{PromptId}"
 @inject HttpClient Http
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
 <PageTitle>@(string.IsNullOrWhiteSpace(PromptId) ? "All Prompts" : "Prompt History")</PageTitle>
 
@@ -67,6 +68,7 @@
                                     <td>
                                         <a href="/edit-prompt/@prompt.PromptId" class="btn btn-sm btn-primary">Edit</a>
                                         <a href="/prompt-history/@prompt.PromptId" class="btn btn-sm btn-info">History</a>
+                                        <button class="btn btn-sm btn-danger" @onclick="() => ConfirmDelete(prompt.PromptId)">Delete</button>
                                     </td>
                                 </tr>
                             }
@@ -387,6 +389,43 @@ else
     private void SetViewMode(string mode)
     {
         selectedViewMode = mode;
+    }
+
+    private async Task ConfirmDelete(string promptId)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete prompt '{promptId}'? This action cannot be undone."))
+        {
+            await DeletePrompt(promptId);
+        }
+    }
+
+    private async Task DeletePrompt(string promptId)
+    {
+        try
+        {
+            isLoading = true;
+            message = string.Empty;
+            var response = await Http.DeleteAsync($"api/prompts/{promptId}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                SetMessage($"Prompt '{promptId}' deleted successfully.", false);
+                await LoadPrompts();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                SetMessage($"Error deleting prompt: {errorContent}", true);
+            }
+        }
+        catch (Exception ex)
+        {
+            SetMessage($"Error deleting prompt: {ex.Message}", true);
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 }
 

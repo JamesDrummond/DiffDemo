@@ -109,5 +109,30 @@ public class PromptsController : ControllerBase
             return StatusCode(500, new { error = "An error occurred while retrieving the prompt version", message = ex.Message });
         }
     }
+
+    [HttpDelete("{promptId}")]
+    public async Task<ActionResult> DeletePrompt(string promptId)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(promptId))
+            {
+                return BadRequest(new { error = "PromptId is required" });
+            }
+
+            var deleted = await _mongoDbService.DeletePromptAsync(promptId);
+            if (!deleted)
+            {
+                return NotFound(new { error = "Prompt not found", promptId });
+            }
+
+            return Ok(new { message = "Prompt deleted successfully", promptId });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting prompt {PromptId}", promptId);
+            return StatusCode(500, new { error = "An error occurred while deleting the prompt", message = ex.Message });
+        }
+    }
 }
 
