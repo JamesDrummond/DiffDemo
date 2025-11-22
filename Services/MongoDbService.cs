@@ -30,36 +30,49 @@ public class MongoDbService : IMongoDbService
 
     public async Task<Prompt> SavePromptAsync(Prompt prompt)
     {
-        // Check if prompt already exists (get current active version)
-        var existingPrompt = await GetPromptAsync(prompt.PromptId);
+        // Get all versions to find the maximum version number
+        var allVersions = await GetAllPromptVersionsAsync(prompt.PromptId);
+        
+        int nextVersion = 1;
+        Prompt? currentActivePrompt = null;
+        bool isExperimental = false;
 
-        if (existingPrompt != null)
+        if (allVersions.Count > 0)
         {
-            // Archive the current version by setting ArchivedDateTime
-            existingPrompt.ArchivedDateTime = DateTime.UtcNow;
-            var archiveFilter = Builders<Prompt>.Filter.Eq(p => p.Id, existingPrompt.Id);
-            await _promptsCollection.ReplaceOneAsync(archiveFilter, existingPrompt);
+            // Find the maximum version number
+            nextVersion = allVersions.Max(p => p.Version) + 1;
+            
+            // Find the current active version (if exists)
+            currentActivePrompt = allVersions.FirstOrDefault(p => p.ArchivedDateTime == null);
+            
+            // If there's an active version, archive it
+            if (currentActivePrompt != null)
+            {
+                currentActivePrompt.ArchivedDateTime = DateTime.UtcNow;
+                var archiveFilter = Builders<Prompt>.Filter.Eq(p => p.Id, currentActivePrompt.Id);
+                await _promptsCollection.ReplaceOneAsync(archiveFilter, currentActivePrompt);
+                
+                // Preserve IsExperimental from the active version
+                isExperimental = currentActivePrompt.IsExperimental;
+            }
+            else
+            {
+                // If no active version, use IsExperimental from the most recent version
+                var mostRecent = allVersions.OrderByDescending(p => p.Version).FirstOrDefault();
+                if (mostRecent != null)
+                {
+                    isExperimental = mostRecent.IsExperimental;
+                }
+            }
+        }
 
-            // Create new version - clear Id so MongoDB generates a new _id
-            prompt.Id = null;
-            prompt.Version = existingPrompt.Version + 1;
-            prompt.UpdatedAt = DateTime.UtcNow;
-            prompt.ArchivedDateTime = null; // Ensure new version is not archived
-            // Preserve IsExperimental from the existing version
-            prompt.IsExperimental = existingPrompt.IsExperimental;
-            await _promptsCollection.InsertOneAsync(prompt);
-        }
-        else
-        {
-            // New prompt - set initial version and ensure Id is null
-            prompt.Id = null;
-            prompt.Version = 1;
-            prompt.UpdatedAt = DateTime.UtcNow;
-            prompt.ArchivedDateTime = null; // Ensure new prompt is not archived
-            // Default IsExperimental to false for new prompts
-            prompt.IsExperimental = false;
-            await _promptsCollection.InsertOneAsync(prompt);
-        }
+        // Create new version - clear Id so MongoDB generates a new _id
+        prompt.Id = null;
+        prompt.Version = nextVersion;
+        prompt.UpdatedAt = DateTime.UtcNow;
+        prompt.ArchivedDateTime = null; // Ensure new version is not archived
+        prompt.IsExperimental = isExperimental;
+        await _promptsCollection.InsertOneAsync(prompt);
 
         return prompt;
     }
@@ -82,6 +95,14 @@ public class MongoDbService : IMongoDbService
             Builders<Prompt>.Filter.Eq(p => p.Version, version)
         );
         return await _promptsCollection.Find(filter).FirstOrDefaultAsync();
+    }
+
+    public async Task<List<Prompt>> GetAllPromptVersionsAsync(string promptId)
+    {
+        // Get all versions (both active and archived) of the prompt
+        var filter = Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId);
+        var sort = Builders<Prompt>.Sort.Descending(p => p.Version);
+        return await _promptsCollection.Find(filter).Sort(sort).ToListAsync();
     }
 
     public async Task<List<Prompt>> GetAllPromptsAsync()

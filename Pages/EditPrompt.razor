@@ -31,11 +31,21 @@
     </div>
 
     <div class="mb-3">
-        <label for="promptText" class="form-label">Prompt Text</label>
-        <textarea class="form-control" id="promptText" rows="15" @bind="promptText" disabled="@isLoading"></textarea>
-        @if (string.IsNullOrWhiteSpace(promptText))
+        @if (allVersions.Count > 0)
         {
-            <small class="text-danger">Prompt text cannot be empty.</small>
+            <label for="versionSelect" class="form-label">Select Version</label>
+            <select class="form-select" id="versionSelect" value="@selectedVersion" @onchange="OnVersionChanged" disabled="@isLoading">
+                @foreach (var version in allVersions)
+                {
+                    var isActive = version.ArchivedDateTime == null;
+                    var displayText = $"Version {version.Version} - {version.UpdatedAt:g}";
+                    if (isActive)
+                    {
+                        displayText += " (Active)";
+                    }
+                    <option value="@version.Version">@displayText</option>
+                }
+            </select>
         }
     </div>
 
@@ -44,10 +54,29 @@
         {
             <p class="text-muted">Current Version: <strong>@currentPrompt.Version</strong></p>
             <p class="text-muted">Last Updated: <strong>@currentPrompt.UpdatedAt.ToString("g")</strong></p>
+            @if (allVersions.Count > 0)
+            {
+                var nextVersion = allVersions.Max(v => v.Version) + 1;
+                <p class="text-info">Next save will create version <strong>@nextVersion</strong></p>
+            }
+        }
+        else if (allVersions.Count > 0)
+        {
+            var nextVersion = allVersions.Max(v => v.Version) + 1;
+            <p class="text-info">Next save will create version <strong>@nextVersion</strong></p>
         }
         else
         {
             <p class="text-info">This is a new prompt. It will be created as version 1.</p>
+        }
+    </div>
+
+    <div class="mb-3">
+        <label for="promptText" class="form-label">Prompt Text</label>
+        <textarea class="form-control" id="promptText" rows="15" @bind="promptText" disabled="@isLoading"></textarea>
+        @if (string.IsNullOrWhiteSpace(promptText))
+        {
+            <small class="text-danger">Prompt text cannot be empty.</small>
         }
     </div>
 
@@ -85,6 +114,8 @@
     private bool isError = false;
     private bool isExistingPrompt = false;
     private string? originalPromptId = null;
+    private List<Prompt> allVersions = new List<Prompt>();
+    private int selectedVersion = 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -107,6 +138,15 @@
         {
             isLoading = true;
             message = string.Empty;
+            
+            // Load all versions
+            var versionsResponse = await Http.GetAsync($"api/prompts/{promptId}/versions");
+            if (versionsResponse.IsSuccessStatusCode)
+            {
+                allVersions = await versionsResponse.Content.ReadFromJsonAsync<List<Prompt>>() ?? new List<Prompt>();
+            }
+            
+            // Load the active version (or latest if no active version)
             var response = await Http.GetAsync($"api/prompts/{promptId}");
             
             if (response.IsSuccessStatusCode)
@@ -118,16 +158,32 @@
                     isExperimental = currentPrompt.IsExperimental;
                     isExistingPrompt = true;
                     originalPromptId = currentPrompt.PromptId;
+                    selectedVersion = currentPrompt.Version;
                     SetMessage($"Loaded prompt version {currentPrompt.Version}.", false);
                 }
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                currentPrompt = null;
-                promptText = string.Empty;
-                isExistingPrompt = false;
-                originalPromptId = null;
-                SetMessage("Prompt not found. This will be a new prompt.", false);
+                // If no active version but we have versions, load the latest one
+                if (allVersions.Count > 0)
+                {
+                    currentPrompt = allVersions.OrderByDescending(v => v.Version).First();
+                    promptText = currentPrompt.Text;
+                    isExperimental = currentPrompt.IsExperimental;
+                    isExistingPrompt = true;
+                    originalPromptId = currentPrompt.PromptId;
+                    selectedVersion = currentPrompt.Version;
+                    SetMessage($"Loaded prompt version {currentPrompt.Version} (archived).", false);
+                }
+                else
+                {
+                    currentPrompt = null;
+                    promptText = string.Empty;
+                    isExistingPrompt = false;
+                    originalPromptId = null;
+                    selectedVersion = 0;
+                    SetMessage("Prompt not found. This will be a new prompt.", false);
+                }
             }
             else
             {
@@ -138,6 +194,73 @@
         catch (Exception ex)
         {
             SetMessage($"Error loading prompt: {ex.Message}", true);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OnVersionChanged(ChangeEventArgs e)
+    {
+        if (e.Value != null && int.TryParse(e.Value.ToString(), out int version))
+        {
+            await LoadVersion(version);
+        }
+    }
+
+    private async Task LoadVersion(int version)
+    {
+        if (string.IsNullOrWhiteSpace(promptId))
+        {
+            return;
+        }
+
+        try
+        {
+            isLoading = true;
+            message = string.Empty;
+            
+            var response = await Http.GetAsync($"api/prompts/{promptId}/history/{version}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var versionPrompt = await response.Content.ReadFromJsonAsync<Prompt>();
+                if (versionPrompt != null)
+                {
+                    currentPrompt = versionPrompt;
+                    promptText = versionPrompt.Text;
+                    isExperimental = versionPrompt.IsExperimental;
+                    selectedVersion = versionPrompt.Version;
+                    SetMessage($"Loaded prompt version {versionPrompt.Version}.", false);
+                }
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // Try to get from allVersions list if it's not found in the API
+                var versionPrompt = allVersions.FirstOrDefault(v => v.Version == version);
+                if (versionPrompt != null)
+                {
+                    currentPrompt = versionPrompt;
+                    promptText = versionPrompt.Text;
+                    isExperimental = versionPrompt.IsExperimental;
+                    selectedVersion = versionPrompt.Version;
+                    SetMessage($"Loaded prompt version {versionPrompt.Version}.", false);
+                }
+                else
+                {
+                    SetMessage($"Version {version} not found.", true);
+                }
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                SetMessage($"Error loading version: {errorContent}", true);
+            }
+        }
+        catch (Exception ex)
+        {
+            SetMessage($"Error loading version: {ex.Message}", true);
         }
         finally
         {
@@ -185,6 +308,15 @@
                     isExperimental = currentPrompt.IsExperimental;
                     isExistingPrompt = true;
                     originalPromptId = currentPrompt.PromptId;
+                    selectedVersion = currentPrompt.Version;
+                    
+                    // Reload all versions to update the dropdown
+                    var versionsResponse = await Http.GetAsync($"api/prompts/{promptId}/versions");
+                    if (versionsResponse.IsSuccessStatusCode)
+                    {
+                        allVersions = await versionsResponse.Content.ReadFromJsonAsync<List<Prompt>>() ?? new List<Prompt>();
+                    }
+                    
                     SetMessage($"Prompt saved successfully! Version {currentPrompt.Version} created at {currentPrompt.UpdatedAt:g}", false);
                 }
             }

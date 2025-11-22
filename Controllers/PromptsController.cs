@@ -106,6 +106,21 @@ public class PromptsController : ControllerBase
         }
     }
 
+    [HttpGet("{promptId}/versions")]
+    public async Task<ActionResult<List<Prompt>>> GetAllPromptVersions(string promptId)
+    {
+        try
+        {
+            var versions = await _mongoDbService.GetAllPromptVersionsAsync(promptId);
+            return Ok(versions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting all prompt versions for {PromptId}", promptId);
+            return StatusCode(500, new { error = "An error occurred while retrieving prompt versions", message = ex.Message });
+        }
+    }
+
     [HttpGet("{promptId}/history/{version}")]
     public async Task<ActionResult<Prompt>> GetPromptVersion(string promptId, int version)
     {
