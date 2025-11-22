@@ -45,6 +45,8 @@ public class MongoDbService : IMongoDbService
             prompt.Version = existingPrompt.Version + 1;
             prompt.UpdatedAt = DateTime.UtcNow;
             prompt.ArchivedDateTime = null; // Ensure new version is not archived
+            // Preserve IsExperimental from the existing version
+            prompt.IsExperimental = existingPrompt.IsExperimental;
             await _promptsCollection.InsertOneAsync(prompt);
         }
         else
@@ -54,6 +56,8 @@ public class MongoDbService : IMongoDbService
             prompt.Version = 1;
             prompt.UpdatedAt = DateTime.UtcNow;
             prompt.ArchivedDateTime = null; // Ensure new prompt is not archived
+            // Default IsExperimental to false for new prompts
+            prompt.IsExperimental = false;
             await _promptsCollection.InsertOneAsync(prompt);
         }
 
@@ -111,6 +115,40 @@ public class MongoDbService : IMongoDbService
         );
         var updateToActive = Builders<Prompt>.Update.Set(p => p.IsActivePrompt, true);
         var updateResult = await _promptsCollection.UpdateOneAsync(versionFilter, updateToActive);
+
+        return updateResult.ModifiedCount > 0;
+    }
+
+    public async Task<bool> SetPromptExperimentalAsync(string promptId, bool isExperimental)
+    {
+        // Get the current active version
+        var existingPrompt = await GetPromptAsync(promptId);
+        if (existingPrompt == null)
+        {
+            return false;
+        }
+
+        // Update the IsExperimental flag on the current active version
+        var filter = Builders<Prompt>.Filter.Eq(p => p.Id, existingPrompt.Id);
+        var update = Builders<Prompt>.Update.Set(p => p.IsExperimental, isExperimental);
+        var updateResult = await _promptsCollection.UpdateOneAsync(filter, update);
+
+        return updateResult.ModifiedCount > 0;
+    }
+
+    public async Task<bool> SetPromptExperimentalByVersionAsync(string promptId, int version, bool isExperimental)
+    {
+        // Get the specific version
+        var promptVersion = await GetPromptVersionAsync(promptId, version);
+        if (promptVersion == null)
+        {
+            return false;
+        }
+
+        // Update the IsExperimental flag on the specific version
+        var filter = Builders<Prompt>.Filter.Eq(p => p.Id, promptVersion.Id);
+        var update = Builders<Prompt>.Update.Set(p => p.IsExperimental, isExperimental);
+        var updateResult = await _promptsCollection.UpdateOneAsync(filter, update);
 
         return updateResult.ModifiedCount > 0;
     }

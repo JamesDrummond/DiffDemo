@@ -120,26 +120,96 @@ else
                 <div class="col-md-4">
                     <h4>Version History</h4>
                     <div class="list-group mb-3">
-                        <a href="#" 
-                           class="list-group-item list-group-item-action @((selectedOldVersion == currentPrompt.Version || selectedNewVersion == currentPrompt.Version) ? "active" : "")"
-                           @onclick="() => SelectVersion(currentPrompt.Version, currentPrompt.Text)">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h6 class="mb-1">Current (v@currentPrompt.Version)</h6>
-                                <small>@currentPrompt.UpdatedAt.ToString("g")</small>
+                        <div class="list-group-item @((selectedOldVersion == currentPrompt.Version || selectedNewVersion == currentPrompt.Version) ? "version-selected" : "")">
+                            <div class="d-flex align-items-start">
+                                <a href="#" 
+                                   class="flex-grow-1 text-decoration-none text-reset"
+                                   @onclick="() => SelectVersion(currentPrompt.Version, currentPrompt.Text)"
+                                   @onclick:stopPropagation="true">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">Current (v@currentPrompt.Version)</h6>
+                                        <small>@currentPrompt.UpdatedAt.ToString("g")</small>
+                                    </div>
+                                    <p class="mb-1 small">@TruncateText(currentPrompt.Text, 100)</p>
+                                </a>
+                                <div class="d-flex flex-column gap-1 ms-2" @onclick:stopPropagation="true">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" 
+                                               id="experimental-@currentPrompt.Version" 
+                                               checked="@currentPrompt.IsExperimental"
+                                               disabled="@(togglingVersions.Contains($"{PromptId}-{currentPrompt.Version}"))"
+                                               @onchange="@((e) => ToggleExperimentalByVersion(currentPrompt.Version, e))" />
+                                        <label class="form-check-label" for="experimental-@currentPrompt.Version" title="Testmode">
+                                            <small>Test</small>
+                                            @if (togglingVersions.Contains($"{PromptId}-{currentPrompt.Version}"))
+                                            {
+                                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                            }
+                                        </label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" 
+                                               id="active-@currentPrompt.Version" 
+                                               checked="@currentPrompt.IsActivePrompt"
+                                               disabled="@(togglingVersions.Contains($"{PromptId}-{currentPrompt.Version}"))"
+                                               @onchange="@((e) => ToggleActiveByVersion(currentPrompt.Version, e))" />
+                                        <label class="form-check-label" for="active-@currentPrompt.Version" title="Active">
+                                            <small>Active</small>
+                                            @if (togglingVersions.Contains($"{PromptId}-{currentPrompt.Version}"))
+                                            {
+                                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                            }
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
-                            <p class="mb-1 small">@TruncateText(currentPrompt.Text, 100)</p>
-                        </a>
+                        </div>
                         @foreach (var historyItem in history.OrderByDescending(h => h.Version))
                         {
-                            <a href="#" 
-                               class="list-group-item list-group-item-action @((selectedOldVersion == historyItem.Version || selectedNewVersion == historyItem.Version) ? "active" : "")"
-                               @onclick="() => SelectVersion(historyItem.Version, historyItem.Text)">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1">Version @historyItem.Version</h6>
-                                    <small>@(historyItem.ArchivedDateTime?.ToString("g") ?? "N/A")</small>
+                            <div class="list-group-item @((selectedOldVersion == historyItem.Version || selectedNewVersion == historyItem.Version) ? "version-selected" : "")">
+                                <div class="d-flex align-items-start">
+                                    <a href="#" 
+                                       class="flex-grow-1 text-decoration-none text-reset"
+                                       @onclick="() => SelectVersion(historyItem.Version, historyItem.Text)"
+                                       @onclick:stopPropagation="true">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h6 class="mb-1">Version @historyItem.Version</h6>
+                                            <small>@(historyItem.ArchivedDateTime?.ToString("g") ?? "N/A")</small>
+                                        </div>
+                                        <p class="mb-1 small">@TruncateText(historyItem.Text, 100)</p>
+                                    </a>
+                                    <div class="d-flex flex-column gap-1 ms-2" @onclick:stopPropagation="true">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   id="experimental-@historyItem.Version" 
+                                                   checked="@historyItem.IsExperimental"
+                                                   disabled="@(togglingVersions.Contains($"{PromptId}-{historyItem.Version}"))"
+                                                   @onchange="@((e) => ToggleExperimentalByVersion(historyItem.Version, e))" />
+                                            <label class="form-check-label" for="experimental-@historyItem.Version" title="Testmode">
+                                                <small>Test</small>
+                                                @if (togglingVersions.Contains($"{PromptId}-{historyItem.Version}"))
+                                                {
+                                                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                                }
+                                            </label>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   id="active-@historyItem.Version" 
+                                                   checked="@historyItem.IsActivePrompt"
+                                                   disabled="@(togglingVersions.Contains($"{PromptId}-{historyItem.Version}"))"
+                                                   @onchange="@((e) => ToggleActiveByVersion(historyItem.Version, e))" />
+                                            <label class="form-check-label" for="active-@historyItem.Version" title="Active">
+                                                <small>Active</small>
+                                                @if (togglingVersions.Contains($"{PromptId}-{historyItem.Version}"))
+                                                {
+                                                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                                }
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
-                                <p class="mb-1 small">@TruncateText(historyItem.Text, 100)</p>
-                            </a>
+                            </div>
                         }
                     </div>
                 </div>
@@ -214,6 +284,18 @@ else
 
 <link href="css/diff-styles.css" rel="stylesheet" />
 
+<style>
+    .version-selected {
+        background-color: #6c757d !important;
+        color: #fff !important;
+    }
+    .version-selected h6,
+    .version-selected small,
+    .version-selected p {
+        color: #fff !important;
+    }
+</style>
+
 @code {
     [Parameter]
     public string PromptId { get; set; } = string.Empty;
@@ -232,6 +314,7 @@ else
     private bool showLineNumbers = true;
     private string selectedViewMode = "SideBySide";
     private DiffViewer.DiffViewMode currentViewMode => selectedViewMode == "SideBySide" ? DiffViewer.DiffViewMode.SideBySide : DiffViewer.DiffViewMode.Inline;
+    private HashSet<string> togglingVersions = new HashSet<string>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -425,6 +508,118 @@ else
         finally
         {
             isLoading = false;
+        }
+    }
+
+    private async Task ToggleExperimentalByVersion(int version, ChangeEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(PromptId))
+            return;
+
+        var versionKey = $"{PromptId}-{version}";
+        
+        try
+        {
+            togglingVersions.Add(versionKey);
+            var newValue = e.Value != null && (bool)e.Value;
+            
+            var response = await Http.PutAsJsonAsync($"api/prompts/{PromptId}/versions/{version}/experimental", newValue);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                // Update the prompt in the appropriate list
+                if (currentPrompt != null && currentPrompt.Version == version)
+                {
+                    currentPrompt.IsExperimental = newValue;
+                }
+                else
+                {
+                    var historyItem = history.FirstOrDefault(h => h.Version == version);
+                    if (historyItem != null)
+                    {
+                        historyItem.IsExperimental = newValue;
+                    }
+                }
+                SetMessage($"Testmode for {PromptId} version {version} set to {(newValue ? "on" : "off")}", false);
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                SetMessage($"Error toggling testmode: {errorContent}", true);
+                // Reload to revert the state
+                await LoadHistory();
+            }
+        }
+        catch (Exception ex)
+        {
+            SetMessage($"Error toggling testmode: {ex.Message}", true);
+            // Reload to revert the state
+            await LoadHistory();
+        }
+        finally
+        {
+            togglingVersions.Remove(versionKey);
+        }
+    }
+
+    private async Task ToggleActiveByVersion(int version, ChangeEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(PromptId))
+            return;
+
+        var newValue = e.Value != null && (bool)e.Value;
+        
+        // If unchecking, prevent it and show a message
+        if (!newValue)
+        {
+            SetMessage("Cannot deactivate a version. Please activate another version instead.", true);
+            // Revert the checkbox by reloading
+            await LoadHistory();
+            return;
+        }
+
+        // If checking, show confirmation dialog
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+            $"Are you sure you want to set version {version} as the active version? This will deactivate all other versions of '{PromptId}'.");
+        
+        if (!confirmed)
+        {
+            // Revert the checkbox by reloading
+            await LoadHistory();
+            return;
+        }
+
+        var versionKey = $"{PromptId}-{version}";
+        
+        try
+        {
+            togglingVersions.Add(versionKey);
+            
+            var response = await Http.PostAsync($"api/prompts/{PromptId}/versions/{version}/set-active", null);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                SetMessage($"Version {version} set as active for {PromptId}.", false);
+                // Reload history to update all versions' active states
+                await LoadHistory();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                SetMessage($"Error setting version as active: {errorContent}", true);
+                // Reload to revert the state
+                await LoadHistory();
+            }
+        }
+        catch (Exception ex)
+        {
+            SetMessage($"Error setting version as active: {ex.Message}", true);
+            // Reload to revert the state
+            await LoadHistory();
+        }
+        finally
+        {
+            togglingVersions.Remove(versionKey);
         }
     }
 }

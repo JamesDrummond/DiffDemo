@@ -78,6 +78,9 @@ public class PromptsController : ControllerBase
             // But we add a check here: if the prompt exists, ensure we're not trying to change its PromptId
             // Since GetPromptAsync returns the prompt with the same PromptId, if it exists, we're good to create a new version
 
+            // Strip IsExperimental from the request - it can only be set via the dedicated endpoint
+            prompt.IsExperimental = false;
+
             var savedPrompt = await _mongoDbService.SavePromptAsync(prompt);
             return Ok(savedPrompt);
         }
@@ -181,6 +184,75 @@ public class PromptsController : ControllerBase
         {
             _logger.LogError(ex, "Error setting prompt {PromptId} version {Version} as active", promptId, version);
             return StatusCode(500, new { error = "An error occurred while setting the prompt as active", message = ex.Message });
+        }
+    }
+
+    [HttpPut("{promptId}/experimental")]
+    public async Task<ActionResult> SetPromptExperimental(string promptId, [FromBody] bool isExperimental)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(promptId))
+            {
+                return BadRequest(new { error = "PromptId is required" });
+            }
+
+            // Verify the prompt exists
+            var prompt = await _mongoDbService.GetPromptAsync(promptId);
+            if (prompt == null)
+            {
+                return NotFound(new { error = "Prompt not found", promptId });
+            }
+
+            var success = await _mongoDbService.SetPromptExperimentalAsync(promptId, isExperimental);
+            if (!success)
+            {
+                return StatusCode(500, new { error = "Failed to set experimental flag" });
+            }
+
+            return Ok(new { message = $"Prompt {promptId} experimental flag set to {isExperimental}", promptId, isExperimental });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error setting experimental flag for prompt {PromptId}", promptId);
+            return StatusCode(500, new { error = "An error occurred while setting the experimental flag", message = ex.Message });
+        }
+    }
+
+    [HttpPut("{promptId}/versions/{version}/experimental")]
+    public async Task<ActionResult> SetPromptExperimentalByVersion(string promptId, int version, [FromBody] bool isExperimental)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(promptId))
+            {
+                return BadRequest(new { error = "PromptId is required" });
+            }
+
+            if (version <= 0)
+            {
+                return BadRequest(new { error = "Version must be greater than 0" });
+            }
+
+            // Verify the version exists
+            var promptVersion = await _mongoDbService.GetPromptVersionAsync(promptId, version);
+            if (promptVersion == null)
+            {
+                return NotFound(new { error = "Prompt version not found", promptId, version });
+            }
+
+            var success = await _mongoDbService.SetPromptExperimentalByVersionAsync(promptId, version, isExperimental);
+            if (!success)
+            {
+                return StatusCode(500, new { error = "Failed to set experimental flag" });
+            }
+
+            return Ok(new { message = $"Prompt {promptId} version {version} experimental flag set to {isExperimental}", promptId, version, isExperimental });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error setting experimental flag for prompt {PromptId} version {Version}", promptId, version);
+            return StatusCode(500, new { error = "An error occurred while setting the experimental flag", message = ex.Message });
         }
     }
 }
