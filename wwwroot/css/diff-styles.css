@@ -47,11 +47,10 @@
 .diff-line {
     display: flex;
     padding: 0.25rem 0.5rem;
-    white-space: pre;
+    white-space: pre-wrap;
     min-height: 1.5rem;
     position: relative;
     min-width: 100%;
-    width: max-content;
 }
 
 .diff-line:hover {
@@ -93,12 +92,12 @@
 
 .line-content {
     flex: 1;
-    word-break: break-all;
+    word-break: normal;
+    overflow-wrap: break-word;
     position: relative;
     overflow: visible;
-    white-space: pre;
+    white-space: pre-wrap;
     min-width: 0;
-    width: max-content;
 }
 
 /* Diff line types */
@@ -136,7 +135,7 @@
     display: inline !important;
     position: relative !important;
     z-index: 10 !important;
-    white-space: pre;
+    white-space: pre-wrap;
     contain: none;
     isolation: isolate;
 }
@@ -150,7 +149,7 @@
     display: inline !important;
     position: relative !important;
     z-index: 10 !important;
-    white-space: pre;
+    white-space: pre-wrap;
     contain: none;
     isolation: isolate;
 }
@@ -164,7 +163,7 @@
     display: inline !important;
     position: relative !important;
     z-index: 10 !important;
-    white-space: pre;
+    white-space: pre-wrap;
     contain: none;
     isolation: isolate;
 }

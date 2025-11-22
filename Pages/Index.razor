@@ -119,20 +119,17 @@ else
             <div class="row">
                 <div class="col-md-4">
                     <h4>Version History</h4>
-                    <div class="list-group mb-3">
-                        <div class="list-group-item @((selectedOldVersion == currentPrompt.Version || selectedNewVersion == currentPrompt.Version) ? "version-selected" : "")">
-                            <div class="d-flex align-items-start">
-                                <a href="#" 
-                                   class="flex-grow-1 text-decoration-none text-reset"
-                                   @onclick="() => SelectVersion(currentPrompt.Version, currentPrompt.Text)"
-                                   @onclick:stopPropagation="true">
-                                    <div class="d-flex w-100 justify-content-between">
-                                        <h6 class="mb-1">Current (v@currentPrompt.Version)</h6>
-                                        <small>@currentPrompt.UpdatedAt.ToString("g")</small>
-                                    </div>
-                                    <p class="mb-1 small">@TruncateText(currentPrompt.Text, 100)</p>
-                                </a>
-                                <div class="d-flex flex-column gap-1 ms-2" @onclick:stopPropagation="true">
+                    <div class="mb-3">
+                        <div class="card border-primary">
+                            <div class="card-header bg-primary text-white">
+                                <div class="d-flex w-100 justify-content-between align-items-center">
+                                    <h6 class="mb-0">Current Version (v@currentPrompt.Version)</h6>
+                                    <small>@currentPrompt.UpdatedAt.ToString("g")</small>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <p class="mb-2 small">@TruncateText(currentPrompt.Text, 100)</p>
+                                <div class="d-flex gap-3" @onclick:stopPropagation="true">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" 
                                                id="experimental-@currentPrompt.Version" 
@@ -164,12 +161,16 @@ else
                                 </div>
                             </div>
                         </div>
+                    </div>
+                    <h5 class="mb-3">Historical Versions</h5>
+                    <div class="list-group mb-3">
                         @foreach (var historyItem in history.OrderByDescending(h => h.Version))
                         {
                             <div class="list-group-item @((selectedOldVersion == historyItem.Version || selectedNewVersion == historyItem.Version) ? "version-selected" : "")">
                                 <div class="d-flex align-items-start">
                                     <a href="#" 
                                        class="flex-grow-1 text-decoration-none text-reset"
+                                       @onclick:preventDefault="true"
                                        @onclick="() => SelectVersion(historyItem.Version, historyItem.Text)"
                                        @onclick:stopPropagation="true">
                                         <div class="d-flex w-100 justify-content-between">
@@ -385,15 +386,59 @@ else
 
             if (currentPrompt != null)
             {
-                // Auto-select current version and previous version if available
+                // Always set current version as the new version
                 selectedNewVersion = currentPrompt.Version;
-                newVersionText = currentPrompt.Text;
-
+                newVersionText = GetVersionText(currentPrompt.Version);
+                
+                // Find the most recent history version to use as old version
                 if (history.Any())
                 {
-                    var latestHistory = history.OrderByDescending(h => h.Version).First();
-                    selectedOldVersion = latestHistory.Version;
-                    oldVersionText = latestHistory.Text;
+                    // Get distinct versions from history, ordered by version number
+                    var historyVersions = history
+                        .GroupBy(p => p.Version)
+                        .Select(g => g.First())
+                        .OrderByDescending(p => p.Version)
+                        .ToList();
+                    
+                    // Find the most recent history version that's different from current
+                    var previousVersion = historyVersions.FirstOrDefault(h => h.Version < currentPrompt.Version);
+                    if (previousVersion == null && historyVersions.Any())
+                    {
+                        // If no version is less than current, use the most recent history version
+                        previousVersion = historyVersions.First();
+                    }
+                    
+                    if (previousVersion != null)
+                    {
+                        selectedOldVersion = previousVersion.Version;
+                        oldVersionText = GetVersionText(previousVersion.Version);
+                        
+                        // Safety check: if texts are the same, try to find a different previous version
+                        if (oldVersionText == newVersionText && historyVersions.Count > 1)
+                        {
+                            // Try starting from the previous version and go backwards
+                            foreach (var candidate in historyVersions.Skip(1))
+                            {
+                                var candidateText = GetVersionText(candidate.Version);
+                                if (candidateText != newVersionText)
+                                {
+                                    selectedOldVersion = candidate.Version;
+                                    oldVersionText = candidateText;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        selectedOldVersion = 0;
+                        oldVersionText = string.Empty;
+                    }
+                }
+                else
+                {
+                    selectedOldVersion = 0;
+                    oldVersionText = string.Empty;
                 }
             }
             else
@@ -413,36 +458,44 @@ else
 
     private void SelectVersion(int version, string text)
     {
-        // Toggle selection: if same version selected, clear it; otherwise set as old or new
-        if (version == selectedNewVersion)
+        // Get the actual text for this version to ensure we have the correct text
+        string actualText = GetVersionText(version);
+        if (string.IsNullOrEmpty(actualText))
         {
-            // Deselect new version
-            selectedNewVersion = 0;
-            newVersionText = string.Empty;
+            actualText = text; // Fallback to passed text if not found
         }
-        else if (version == selectedOldVersion)
+
+        // Don't allow selecting the current version
+        if (currentPrompt != null && version == currentPrompt.Version)
         {
-            // Deselect old version
+            return;
+        }
+
+        // Ensure current version is always set as new version
+        if (currentPrompt != null)
+        {
+            selectedNewVersion = currentPrompt.Version;
+            newVersionText = GetVersionText(currentPrompt.Version);
+        }
+
+        // When selecting a historical version, update the old version
+        if (version == selectedOldVersion)
+        {
+            // If clicking the old version, deselect it
             selectedOldVersion = 0;
             oldVersionText = string.Empty;
         }
-        else if (selectedNewVersion == 0 || version > selectedNewVersion)
-        {
-            // Set as new version (higher version number)
-            selectedNewVersion = version;
-            newVersionText = text;
-        }
         else
         {
-            // Set as old version (lower version number)
+            // Set the selected version as the old version
             selectedOldVersion = version;
-            oldVersionText = text;
+            oldVersionText = actualText;
         }
 
-        // Ensure old version is always less than new version
+        // Ensure old version is always less than new version (swap if needed)
         if (selectedOldVersion > 0 && selectedNewVersion > 0 && selectedOldVersion > selectedNewVersion)
         {
-            // Swap them
+            // Swap versions and their texts
             var tempVersion = selectedOldVersion;
             var tempText = oldVersionText;
             selectedOldVersion = selectedNewVersion;
@@ -450,6 +503,24 @@ else
             selectedNewVersion = tempVersion;
             newVersionText = tempText;
         }
+    }
+
+    private string GetVersionText(int version)
+    {
+        // Check current prompt first
+        if (currentPrompt != null && currentPrompt.Version == version)
+        {
+            return currentPrompt.Text;
+        }
+
+        // Check history
+        var historyItem = history.FirstOrDefault(h => h.Version == version);
+        if (historyItem != null)
+        {
+            return historyItem.Text;
+        }
+
+        return string.Empty;
     }
 
     private string TruncateText(string text, int maxLength)
@@ -623,4 +694,5 @@ else
         }
     }
 }
+
 

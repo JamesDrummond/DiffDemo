@@ -229,7 +229,7 @@ public partial class DiffViewer : ComponentBase
             foreach (var subPiece in piece.SubPieces)
             {
                 var text = EscapeHtml(subPiece.Text);
-                text = text.Replace(" ", "\u00A0").Replace("\t", "    ");
+                text = text.Replace("\t", "    ");
                 
                 var className = subPiece.Type switch
                 {
@@ -253,7 +253,7 @@ public partial class DiffViewer : ComponentBase
 
         // No sub-pieces, just render the text normally
         var plainText = EscapeHtml(piece.Text);
-        plainText = plainText.Replace(" ", "\u00A0").Replace("\t", "    ");
+        plainText = plainText.Replace("\t", "    ");
         return new MarkupString(plainText);
     }
 
