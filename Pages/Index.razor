@@ -32,7 +32,7 @@
         }
         else
         {
-            @if (prompts == null || !prompts.Any())
+            @if (promptDisplayItems == null || !promptDisplayItems.Any())
             {
                 <div class="alert alert-info">
                     No prompts found. <a href="/edit-prompt">Create your first prompt</a> to get started.
@@ -52,23 +52,48 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var prompt in prompts)
+                            @foreach (var item in promptDisplayItems)
                             {
                                 <tr>
                                     <td>
-                                        <strong>@prompt.PromptId</strong>
+                                        <strong>@item.PromptId</strong>
                                     </td>
                                     <td>
-                                        <span class="badge bg-secondary">v@prompt.Version</span>
+                                        @if (item.ActiveVersion != null)
+                                        {
+                                            <span class="badge bg-success">
+                                                v@(item.ActiveVersion.Version) (Active)
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">None</span>
+                                        }
                                     </td>
-                                    <td>@prompt.UpdatedAt.ToString("g")</td>
                                     <td>
-                                        <small class="text-muted">@TruncateText(prompt.Text, 100)</small>
+                                        @if (item.ActiveVersion != null)
+                                        {
+                                            @item.ActiveVersion.UpdatedAt.ToString("g")
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
                                     </td>
                                     <td>
-                                        <a href="/edit-prompt/@prompt.PromptId" class="btn btn-sm btn-primary">Edit</a>
-                                        <a href="/prompt-history/@prompt.PromptId" class="btn btn-sm btn-info">History</a>
-                                        <button class="btn btn-sm btn-danger" @onclick="() => ConfirmDelete(prompt.PromptId)">Delete</button>
+                                        @if (item.ActiveVersion != null)
+                                        {
+                                            <small class="text-muted">@TruncateText(item.ActiveVersion.Text, 100)</small>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <a href="/edit-prompt/@item.PromptId" class="btn btn-sm btn-primary">Edit</a>
+                                        <a href="/prompt-history/@item.PromptId" class="btn btn-sm btn-info">History</a>
+                                        <button class="btn btn-sm btn-danger" @onclick="() => ConfirmDelete(item.PromptId)">Delete</button>
                                     </td>
                                 </tr>
                             }
@@ -304,10 +329,16 @@ else
 
     private Prompt? currentPrompt;
     private List<Prompt> history = new();
-    private List<Prompt>? prompts;
+    private List<PromptDisplayItem>? promptDisplayItems;
     private bool isLoading = false;
     private string message = string.Empty;
     private bool isError = false;
+
+    private class PromptDisplayItem
+    {
+        public string PromptId { get; set; } = string.Empty;
+        public Prompt? ActiveVersion { get; set; }
+    }
 
     private int selectedOldVersion = 0;
     private int selectedNewVersion = 0;
@@ -346,8 +377,41 @@ else
         {
             isLoading = true;
             message = string.Empty;
-            var response = await Http.GetFromJsonAsync<List<Prompt>>("api/prompts");
-            prompts = response ?? new List<Prompt>();
+            
+            // Get all prompts (all versions) to find unique PromptIds
+            var allPrompts = new List<Prompt>();
+            
+            // First, get all non-archived prompts
+            var activeResponse = await Http.GetFromJsonAsync<List<Prompt>>("api/prompts");
+            if (activeResponse != null)
+            {
+                allPrompts.AddRange(activeResponse);
+            }
+            
+            // Get all unique PromptIds
+            var uniquePromptIds = allPrompts.Select(p => p.PromptId).Distinct().ToList();
+            
+            // For each unique PromptId, find the active version
+            promptDisplayItems = new List<PromptDisplayItem>();
+            foreach (var promptId in uniquePromptIds)
+            {
+                // Get all versions for this PromptId
+                var versionsResponse = await Http.GetAsync($"api/prompts/{promptId}/versions");
+                if (versionsResponse.IsSuccessStatusCode)
+                {
+                    var versions = await versionsResponse.Content.ReadFromJsonAsync<List<Prompt>>() ?? new List<Prompt>();
+                    var activeVersion = versions.FirstOrDefault(p => p.IsActivePrompt);
+                    
+                    promptDisplayItems.Add(new PromptDisplayItem
+                    {
+                        PromptId = promptId,
+                        ActiveVersion = activeVersion
+                    });
+                }
+            }
+            
+            // Sort by PromptId
+            promptDisplayItems = promptDisplayItems.OrderBy(p => p.PromptId).ToList();
         }
         catch (Exception ex)
         {

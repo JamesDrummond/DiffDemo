@@ -114,7 +114,7 @@ Logging levels can be configured in `appsettings.json`:
 
 ## Usage
 
-1. **View All Prompts**: Navigate to `/prompts` to see all saved prompts
+1. **View All Prompts**: Navigate to `/` to see all saved prompts
 2. **Create Prompt**: Click "Create New Prompt" to add a new prompt
 3. **Edit Prompt**: Click "Edit" on any prompt to modify it
 4. **View History**: Click "History" to see version history and compare changes using the diff viewer
