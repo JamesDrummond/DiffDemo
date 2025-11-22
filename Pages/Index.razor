@@ -704,36 +704,57 @@ else
             return;
 
         var newValue = e.Value != null && (bool)e.Value;
-        
-        // If unchecking, prevent it and show a message
-        if (!newValue)
-        {
-            SetMessage("Cannot deactivate a version. Please activate another version instead.", true);
-            // Revert the checkbox by reloading
-            await LoadHistory();
-            return;
-        }
-
-        // If checking, show confirmation dialog
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
-            $"Are you sure you want to set version {version} as the active version? This will deactivate all other versions of '{PromptId}'.");
-        
-        if (!confirmed)
-        {
-            // Revert the checkbox by reloading
-            await LoadHistory();
-            return;
-        }
-
         var versionKey = $"{PromptId}-{version}";
         
         try
         {
             togglingVersions.Add(versionKey);
             
-            var response = await Http.PostAsync($"api/prompts/{PromptId}/versions/{version}/set-active", null);
+            // If unchecking (setting to false), deactivate all versions
+            if (!newValue)
+            {
+                var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+                    $"Are you sure you want to deactivate all versions of '{PromptId}'?");
+                
+                if (!confirmed)
+                {
+                    // Revert the checkbox by reloading
+                    await LoadHistory();
+                    return;
+                }
+
+                var response = await Http.PutAsync($"api/prompts/{PromptId}/deactivate-all", null);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    SetMessage($"All versions of {PromptId} have been deactivated.", false);
+                    // Reload history to update all versions' active states
+                    await LoadHistory();
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    SetMessage($"Error deactivating all versions: {errorContent}", true);
+                    // Reload to revert the state
+                    await LoadHistory();
+                }
+                return;
+            }
+
+            // If checking (setting to true), show confirmation dialog
+            var activateConfirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+                $"Are you sure you want to set version {version} as the active version? This will deactivate all other versions of '{PromptId}'.");
             
-            if (response.IsSuccessStatusCode)
+            if (!activateConfirmed)
+            {
+                // Revert the checkbox by reloading
+                await LoadHistory();
+                return;
+            }
+            
+            var activateResponse = await Http.PostAsync($"api/prompts/{PromptId}/versions/{version}/set-active", null);
+            
+            if (activateResponse.IsSuccessStatusCode)
             {
                 SetMessage($"Version {version} set as active for {PromptId}.", false);
                 // Reload history to update all versions' active states
@@ -741,7 +762,7 @@ else
             }
             else
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
+                var errorContent = await activateResponse.Content.ReadAsStringAsync();
                 SetMessage($"Error setting version as active: {errorContent}", true);
                 // Reload to revert the state
                 await LoadHistory();
@@ -749,7 +770,7 @@ else
         }
         catch (Exception ex)
         {
-            SetMessage($"Error setting version as active: {ex.Message}", true);
+            SetMessage($"Error toggling active status: {ex.Message}", true);
             // Reload to revert the state
             await LoadHistory();
         }

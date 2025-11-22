@@ -140,6 +140,16 @@ public class MongoDbService : IMongoDbService
         return updateResult.ModifiedCount > 0;
     }
 
+    public async Task<bool> DeactivateAllPromptVersionsAsync(string promptId)
+    {
+        // Set all versions of this promptId to inactive
+        var allVersionsFilter = Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId);
+        var updateAllToFalse = Builders<Prompt>.Update.Set(p => p.IsActivePrompt, false);
+        var updateResult = await _promptsCollection.UpdateManyAsync(allVersionsFilter, updateAllToFalse);
+
+        return updateResult.ModifiedCount > 0;
+    }
+
     public async Task<bool> SetPromptExperimentalAsync(string promptId, bool isExperimental)
     {
         // Get the current active version

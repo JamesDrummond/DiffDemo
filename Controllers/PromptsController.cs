@@ -270,5 +270,37 @@ public class PromptsController : ControllerBase
             return StatusCode(500, new { error = "An error occurred while setting the experimental flag", message = ex.Message });
         }
     }
+
+    [HttpPut("{promptId}/deactivate-all")]
+    public async Task<ActionResult> DeactivateAllPromptVersions(string promptId)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(promptId))
+            {
+                return BadRequest(new { error = "PromptId is required" });
+            }
+
+            // Verify at least one version exists
+            var versions = await _mongoDbService.GetAllPromptVersionsAsync(promptId);
+            if (versions == null || versions.Count == 0)
+            {
+                return NotFound(new { error = "No versions found for prompt", promptId });
+            }
+
+            var success = await _mongoDbService.DeactivateAllPromptVersionsAsync(promptId);
+            if (!success)
+            {
+                return StatusCode(500, new { error = "Failed to deactivate all versions" });
+            }
+
+            return Ok(new { message = $"All versions of prompt {promptId} have been deactivated", promptId });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deactivating all versions for prompt {PromptId}", promptId);
+            return StatusCode(500, new { error = "An error occurred while deactivating all versions", message = ex.Message });
+        }
+    }
 }
 
