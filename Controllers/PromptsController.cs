@@ -51,6 +51,25 @@ public class PromptsController : ControllerBase
         }
     }
 
+    [HttpGet("by-id/{id}")]
+    public async Task<ActionResult<Prompt>> GetPromptById(Guid id)
+    {
+        try
+        {
+            var prompt = await _mongoDbService.GetPromptByIdAsync(id);
+            if (prompt == null)
+            {
+                return NotFound(new { error = "Prompt not found", id });
+            }
+            return Ok(prompt);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting prompt by id {Id}", id);
+            return StatusCode(500, new { error = "An error occurred while retrieving the prompt", message = ex.Message });
+        }
+    }
+
     [HttpPost]
     public async Task<ActionResult<Prompt>> SavePrompt([FromBody] Prompt prompt)
     {
