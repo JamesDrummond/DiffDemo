@@ -18,12 +18,21 @@ public class MongoDbService : IMongoDbService
         _promptsCollection = _database.GetCollection<Prompt>("Prompts");
     }
 
-    public async Task<Prompt?> GetPromptAsync(string promptId)
+    public async Task<Prompt?> GetPromptByIdAsync(Guid id)
+    {
+        // Get the current (non-archived) version of the prompt
+        var filter = Builders<Prompt>.Filter.And(
+            Builders<Prompt>.Filter.Eq(p => p.Id, id)
+        );
+        return await _promptsCollection.Find(filter).FirstOrDefaultAsync();
+    }
+
+    public async Task<Prompt?> GetPromptAsync(Guid promptId)
     {
         // Get the current (non-archived) version of the prompt
         var filter = Builders<Prompt>.Filter.And(
             Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId),
-            Builders<Prompt>.Filter.Eq(p => p.ArchivedDateTime, (DateTime?)null)
+            Builders<Prompt>.Filter.Eq(p => p.ArchivedAtDateTime, (DateTime?)null)
         );
         return await _promptsCollection.Find(filter).FirstOrDefaultAsync();
     }
@@ -43,12 +52,12 @@ public class MongoDbService : IMongoDbService
             nextVersion = allVersions.Max(p => p.Version) + 1;
             
             // Find the current active version (if exists)
-            currentActivePrompt = allVersions.FirstOrDefault(p => p.ArchivedDateTime == null);
+            currentActivePrompt = allVersions.FirstOrDefault(p => p.ArchivedAtDateTime == null);
             
             // If there's an active version, archive it
             if (currentActivePrompt != null)
             {
-                currentActivePrompt.ArchivedDateTime = DateTime.UtcNow;
+                currentActivePrompt.ArchivedAtDateTime = DateTime.UtcNow;
                 var archiveFilter = Builders<Prompt>.Filter.Eq(p => p.Id, currentActivePrompt.Id);
                 await _promptsCollection.ReplaceOneAsync(archiveFilter, currentActivePrompt);
                 
@@ -66,29 +75,29 @@ public class MongoDbService : IMongoDbService
             }
         }
 
-        // Create new version - clear Id so MongoDB generates a new _id
-        prompt.Id = null;
+        // Create new version - generate new Id
+        prompt.Id = Guid.NewGuid();
         prompt.Version = nextVersion;
-        prompt.UpdatedAt = DateTime.UtcNow;
-        prompt.ArchivedDateTime = null; // Ensure new version is not archived
+        prompt.UpdatedAtDateTime = DateTime.UtcNow;
+        prompt.ArchivedAtDateTime = null; // Ensure new version is not archived
         prompt.IsExperimental = isExperimental;
         await _promptsCollection.InsertOneAsync(prompt);
 
         return prompt;
     }
 
-    public async Task<List<Prompt>> GetPromptHistoryAsync(string promptId)
+    public async Task<List<Prompt>> GetPromptHistoryAsync(Guid promptId)
     {
         // Get all archived versions of the prompt
         var filter = Builders<Prompt>.Filter.And(
             Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId),
-            Builders<Prompt>.Filter.Ne(p => p.ArchivedDateTime, (DateTime?)null)
+            Builders<Prompt>.Filter.Ne(p => p.ArchivedAtDateTime, (DateTime?)null)
         );
         var sort = Builders<Prompt>.Sort.Descending(p => p.Version);
         return await _promptsCollection.Find(filter).Sort(sort).ToListAsync();
     }
 
-    public async Task<Prompt?> GetPromptVersionAsync(string promptId, int version)
+    public async Task<Prompt?> GetPromptVersionAsync(Guid promptId, int version)
     {
         var filter = Builders<Prompt>.Filter.And(
             Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId),
@@ -97,7 +106,7 @@ public class MongoDbService : IMongoDbService
         return await _promptsCollection.Find(filter).FirstOrDefaultAsync();
     }
 
-    public async Task<List<Prompt>> GetAllPromptVersionsAsync(string promptId)
+    public async Task<List<Prompt>> GetAllPromptVersionsAsync(Guid promptId)
     {
         // Get all versions (both active and archived) of the prompt
         var filter = Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId);
@@ -108,12 +117,12 @@ public class MongoDbService : IMongoDbService
     public async Task<List<Prompt>> GetAllPromptsAsync()
     {
         // Get only active (non-archived) prompts
-        var filter = Builders<Prompt>.Filter.Eq(p => p.ArchivedDateTime, (DateTime?)null);
-        var sort = Builders<Prompt>.Sort.Descending(p => p.UpdatedAt);
+        var filter = Builders<Prompt>.Filter.Eq(p => p.ArchivedAtDateTime, (DateTime?)null);
+        var sort = Builders<Prompt>.Sort.Descending(p => p.UpdatedAtDateTime);
         return await _promptsCollection.Find(filter).Sort(sort).ToListAsync();
     }
 
-    public async Task<bool> DeletePromptAsync(string promptId)
+    public async Task<bool> DeletePromptAsync(Guid promptId)
     {
         // Delete all versions (both active and archived) of the prompt
         var filter = Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId);
@@ -122,7 +131,7 @@ public class MongoDbService : IMongoDbService
         return deleteResult.DeletedCount > 0;
     }
 
-    public async Task<bool> SetPromptActiveByVersionAsync(string promptId, int version)
+    public async Task<bool> SetPromptActiveByVersionAsync(Guid promptId, int version)
     {
         // First, set all versions of this promptId to inactive
         var allVersionsFilter = Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId);
@@ -140,7 +149,7 @@ public class MongoDbService : IMongoDbService
         return updateResult.ModifiedCount > 0;
     }
 
-    public async Task<bool> DeactivateAllPromptVersionsAsync(string promptId)
+    public async Task<bool> DeactivateAllPromptVersionsAsync(Guid promptId)
     {
         // Set all versions of this promptId to inactive
         var allVersionsFilter = Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId);
@@ -150,7 +159,7 @@ public class MongoDbService : IMongoDbService
         return updateResult.ModifiedCount > 0;
     }
 
-    public async Task<bool> SetPromptExperimentalAsync(string promptId, bool isExperimental)
+    public async Task<bool> SetPromptExperimentalAsync(Guid promptId, bool isExperimental)
     {
         // Get the current active version
         var existingPrompt = await GetPromptAsync(promptId);
@@ -167,7 +176,7 @@ public class MongoDbService : IMongoDbService
         return updateResult.ModifiedCount > 0;
     }
 
-    public async Task<bool> SetPromptExperimentalByVersionAsync(string promptId, int version, bool isExperimental)
+    public async Task<bool> SetPromptExperimentalByVersionAsync(Guid promptId, int version, bool isExperimental)
     {
         // Get the specific version
         var promptVersion = await GetPromptVersionAsync(promptId, version);

@@ -6,28 +6,32 @@ namespace DiffDemo.Models;
 public class Prompt
 {
     [BsonId]
-    [BsonRepresentation(BsonType.ObjectId)]
-    public string? Id { get; set; }
+    [BsonRepresentation(BsonType.Binary)]
+    public Guid Id { get; set; }
 
     [BsonElement("promptId")]
-    public string PromptId { get; set; } = string.Empty;
+    [BsonRepresentation(BsonType.Binary)]
+    public Guid PromptId { get; set; }
 
     [BsonElement("version")]
     public int Version { get; set; }
 
     [BsonElement("text")]
     public string Text { get; set; } = string.Empty;
+    
+    [BsonElement("createdAtDateTime")]
+    public DateTime CreatedAtDateTime { get; set; } = DateTime.UtcNow;
 
-    [BsonElement("updatedAt")]
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    [BsonElement("updatedAtDateTime")]
+    public DateTime? UpdatedAtDateTime { get; set; }
 
-    [BsonElement("archivedDateTime")]
-    public DateTime? ArchivedDateTime { get; set; }
+    [BsonElement("archivedAtDateTime")]
+    public DateTime? ArchivedAtDateTime { get; set; }
 
     [BsonElement("isExperimental")]
-    public bool IsExperimental { get; set; }
+    public bool IsExperimental { get; set; } = false;
 
     [BsonElement("isActivePrompt")]
-    public bool IsActivePrompt { get; set; }
+    public bool IsActivePrompt { get; set; } = false;
 }
 

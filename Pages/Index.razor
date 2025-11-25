@@ -73,7 +73,7 @@
                                     <td>
                                         @if (item.ActiveVersion != null)
                                         {
-                                            @item.ActiveVersion.UpdatedAt.ToString("g")
+                                            @item.ActiveVersion.UpdatedAtDateTime?.ToString("g")
                                         }
                                         else
                                         {
@@ -150,7 +150,7 @@ else
                             <div class="card-header bg-primary text-white">
                                 <div class="d-flex w-100 justify-content-between align-items-center">
                                     <h6 class="mb-0">Version @(currentPrompt.Version)</h6>
-                                    <small>@currentPrompt.UpdatedAt.ToString("g")</small>
+                                    <small>@currentPrompt.UpdatedAtDateTime?.ToString("g")</small>
                                 </div>
                             </div>
                             <div class="card-body">
@@ -201,7 +201,7 @@ else
                                        @onclick:stopPropagation="true">
                                         <div class="d-flex w-100 justify-content-between">
                                             <h6 class="mb-1">Version @historyItem.Version</h6>
-                                            <small>@(historyItem.ArchivedDateTime?.ToString("g") ?? "N/A")</small>
+                                            <small>@(historyItem.ArchivedAtDateTime?.ToString("g") ?? "N/A")</small>
                                         </div>
                                         <p class="mb-1 small">@TruncateText(historyItem.Text, 100)</p>
                                     </a>
@@ -325,7 +325,7 @@ else
 
 @code {
     [Parameter]
-    public string PromptId { get; set; } = string.Empty;
+    public string? PromptId { get; set; }
 
     private Prompt? currentPrompt;
     private List<Prompt> history = new();
@@ -336,7 +336,7 @@ else
 
     private class PromptDisplayItem
     {
-        public string PromptId { get; set; } = string.Empty;
+        public Guid PromptId { get; set; }
         public Prompt? ActiveVersion { get; set; }
     }
 
@@ -425,9 +425,9 @@ else
 
     private async Task LoadHistory()
     {
-        if (string.IsNullOrWhiteSpace(PromptId))
+        if (string.IsNullOrWhiteSpace(PromptId) || !Guid.TryParse(PromptId, out var promptIdGuid))
         {
-            SetMessage("Prompt ID is required.", true);
+            SetMessage("Prompt ID is required and must be a valid GUID.", true);
             return;
         }
 
@@ -436,13 +436,13 @@ else
             isLoading = true;
             message = string.Empty;
 
-            var promptResponse = await Http.GetAsync($"api/prompts/{PromptId}");
+            var promptResponse = await Http.GetAsync($"api/prompts/{promptIdGuid}");
             if (promptResponse.IsSuccessStatusCode)
             {
                 currentPrompt = await promptResponse.Content.ReadFromJsonAsync<Prompt>();
             }
 
-            var historyResponse = await Http.GetAsync($"api/prompts/{PromptId}/history");
+            var historyResponse = await Http.GetAsync($"api/prompts/{promptIdGuid}/history");
             if (historyResponse.IsSuccessStatusCode)
             {
                 var historyList = await historyResponse.Content.ReadFromJsonAsync<List<Prompt>>();
@@ -610,7 +610,7 @@ else
         selectedViewMode = mode;
     }
 
-    private async Task ConfirmDelete(string promptId)
+    private async Task ConfirmDelete(Guid promptId)
     {
         if (await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete prompt '{promptId}'? This action cannot be undone."))
         {
@@ -618,7 +618,7 @@ else
         }
     }
 
-    private async Task DeletePrompt(string promptId)
+    private async Task DeletePrompt(Guid promptId)
     {
         try
         {
@@ -649,7 +649,7 @@ else
 
     private async Task ToggleExperimentalByVersion(int version, ChangeEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(PromptId))
+        if (string.IsNullOrWhiteSpace(PromptId) || !Guid.TryParse(PromptId, out var promptIdGuid))
             return;
 
         var versionKey = $"{PromptId}-{version}";
@@ -659,7 +659,7 @@ else
             togglingVersions.Add(versionKey);
             var newValue = e.Value != null && (bool)e.Value;
             
-            var response = await Http.PutAsJsonAsync($"api/prompts/{PromptId}/versions/{version}/experimental", newValue);
+            var response = await Http.PutAsJsonAsync($"api/prompts/{promptIdGuid}/versions/{version}/experimental", newValue);
             
             if (response.IsSuccessStatusCode)
             {
@@ -700,7 +700,7 @@ else
 
     private async Task ToggleActiveByVersion(int version, ChangeEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(PromptId))
+        if (string.IsNullOrWhiteSpace(PromptId) || !Guid.TryParse(PromptId, out var promptIdGuid))
             return;
 
         var newValue = e.Value != null && (bool)e.Value;
@@ -723,7 +723,7 @@ else
                     return;
                 }
 
-                var response = await Http.PutAsync($"api/prompts/{PromptId}/deactivate-all", null);
+                var response = await Http.PutAsync($"api/prompts/{promptIdGuid}/deactivate-all", null);
                 
                 if (response.IsSuccessStatusCode)
                 {
@@ -752,7 +752,7 @@ else
                 return;
             }
             
-            var activateResponse = await Http.PostAsync($"api/prompts/{PromptId}/versions/{version}/set-active", null);
+            var activateResponse = await Http.PostAsync($"api/prompts/{promptIdGuid}/versions/{version}/set-active", null);
             
             if (activateResponse.IsSuccessStatusCode)
             {

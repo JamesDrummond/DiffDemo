@@ -23,10 +23,14 @@
 
     <div class="mb-3">
         <label for="promptId" class="form-label">Prompt ID</label>
-        <input type="text" class="form-control" id="promptId" @bind="promptId" disabled="@(isLoading || isExistingPrompt)" readonly="@isExistingPrompt" />
+        <input type="text" class="form-control @(IsPromptIdValid ? "" : "is-invalid")" id="promptId" @bind="promptId" @bind:event="oninput" disabled="@(isLoading || isExistingPrompt)" readonly="@isExistingPrompt" />
         @if (isExistingPrompt)
         {
             <small class="text-muted">Prompt ID cannot be changed once set.</small>
+        }
+        else if (!string.IsNullOrWhiteSpace(promptId) && !IsPromptIdValid)
+        {
+            <small class="text-danger">Prompt ID must be a valid GUID format.</small>
         }
     </div>
 
@@ -37,8 +41,8 @@
             <select class="form-select" id="versionSelect" value="@selectedVersion" @onchange="OnVersionChanged" disabled="@isLoading">
                 @foreach (var version in allVersions)
                 {
-                    var isActive = version.ArchivedDateTime == null;
-                    var displayText = $"Version {version.Version} - {version.UpdatedAt:g}";
+                    var isActive = version.ArchivedAtDateTime == null;
+                    var displayText = $"Version {version.Version} - {version.UpdatedAtDateTime:g}";
                     if (isActive)
                     {
                         displayText += " (Active)";
@@ -53,7 +57,7 @@
         @if (currentPrompt != null)
         {
             <p class="text-muted">Current Version: <strong>@currentPrompt.Version</strong></p>
-            <p class="text-muted">Last Updated: <strong>@currentPrompt.UpdatedAt.ToString("g")</strong></p>
+            <p class="text-muted">Last Updated: <strong>@currentPrompt.UpdatedAtDateTime?.ToString("g")</strong></p>
             @if (allVersions.Count > 0)
             {
                 var nextVersion = allVersions.Max(v => v.Version) + 1;
@@ -81,7 +85,7 @@
     </div>
 
     <div class="mb-3">
-        <button class="btn btn-primary" @onclick="SavePrompt" disabled="@(isLoading || string.IsNullOrWhiteSpace(promptText) || string.IsNullOrWhiteSpace(promptId))">
+        <button class="btn btn-primary" @onclick="SavePrompt" disabled="@(isLoading || string.IsNullOrWhiteSpace(promptText) || !IsPromptIdValid)">
             @if (isLoading)
             {
                 <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -92,10 +96,10 @@
                 <span>Save Prompt</span>
             }
         </button>
-        <button class="btn btn-secondary ms-2" @onclick="LoadPrompt" disabled="@(isLoading || string.IsNullOrWhiteSpace(promptId))">
+        <button class="btn btn-secondary ms-2" @onclick="LoadPrompt" disabled="@(isLoading || !IsPromptIdValid)">
             Load Prompt
         </button>
-        <a href="/prompt-history/@promptId" class="btn btn-info ms-2" style="@(string.IsNullOrWhiteSpace(promptId) || currentPrompt == null ? "display:none;" : "")">
+        <a href="/prompt-history/@promptId" class="btn btn-info ms-2" style="@(!IsPromptIdValid || currentPrompt == null ? "display:none;" : "")">
             View History
         </a>
     </div>
@@ -105,7 +109,7 @@
     [Parameter]
     public string? PromptId { get; set; }
 
-    private string promptId = "default";
+    private string promptId = string.Empty;
     private string promptText = string.Empty;
     private bool isExperimental = false;
     private Prompt? currentPrompt;
@@ -113,24 +117,38 @@
     private string message = string.Empty;
     private bool isError = false;
     private bool isExistingPrompt = false;
-    private string? originalPromptId = null;
+    private Guid? originalPromptId = null;
     private List<Prompt> allVersions = new List<Prompt>();
     private int selectedVersion = 0;
+
+    private bool IsPromptIdValid => !string.IsNullOrWhiteSpace(promptId) && Guid.TryParse(promptId, out _);
 
     protected override async Task OnInitializedAsync()
     {
         if (!string.IsNullOrEmpty(PromptId))
         {
-            promptId = PromptId;
-            await LoadPrompt();
+            if (Guid.TryParse(PromptId, out _))
+            {
+                promptId = PromptId;
+                await LoadPrompt();
+            }
+            else
+            {
+                SetMessage("Invalid Prompt ID format.", true);
+            }
+        }
+        else
+        {
+            // Generate a new GUID for creating a new prompt
+            promptId = Guid.NewGuid().ToString();
         }
     }
 
     private async Task LoadPrompt()
     {
-        if (string.IsNullOrWhiteSpace(promptId))
+        if (string.IsNullOrWhiteSpace(promptId) || !Guid.TryParse(promptId, out var promptIdGuid))
         {
-            SetMessage("Prompt ID cannot be empty.", true);
+            SetMessage("Prompt ID cannot be empty and must be a valid GUID.", true);
             return;
         }
 
@@ -140,14 +158,14 @@
             message = string.Empty;
             
             // Load all versions
-            var versionsResponse = await Http.GetAsync($"api/prompts/{promptId}/versions");
+            var versionsResponse = await Http.GetAsync($"api/prompts/{promptIdGuid}/versions");
             if (versionsResponse.IsSuccessStatusCode)
             {
                 allVersions = await versionsResponse.Content.ReadFromJsonAsync<List<Prompt>>() ?? new List<Prompt>();
             }
             
             // Load the active version (or latest if no active version)
-            var response = await Http.GetAsync($"api/prompts/{promptId}");
+            var response = await Http.GetAsync($"api/prompts/{promptIdGuid}");
             
             if (response.IsSuccessStatusCode)
             {
@@ -211,7 +229,7 @@
 
     private async Task LoadVersion(int version)
     {
-        if (string.IsNullOrWhiteSpace(promptId))
+        if (string.IsNullOrWhiteSpace(promptId) || !Guid.TryParse(promptId, out var promptIdGuid))
         {
             return;
         }
@@ -221,7 +239,7 @@
             isLoading = true;
             message = string.Empty;
             
-            var response = await Http.GetAsync($"api/prompts/{promptId}/history/{version}");
+            var response = await Http.GetAsync($"api/prompts/{promptIdGuid}/history/{version}");
             
             if (response.IsSuccessStatusCode)
             {
@@ -270,9 +288,9 @@
 
     private async Task SavePrompt()
     {
-        if (string.IsNullOrWhiteSpace(promptId))
+        if (string.IsNullOrWhiteSpace(promptId) || !Guid.TryParse(promptId, out var promptIdGuid))
         {
-            SetMessage("Prompt ID cannot be empty.", true);
+            SetMessage("Prompt ID cannot be empty and must be a valid GUID.", true);
             return;
         }
 
@@ -289,7 +307,7 @@
 
             var prompt = new Prompt
             {
-                PromptId = promptId,
+                PromptId = promptIdGuid,
                 Text = promptText
             };
 
@@ -311,13 +329,13 @@
                     selectedVersion = currentPrompt.Version;
                     
                     // Reload all versions to update the dropdown
-                    var versionsResponse = await Http.GetAsync($"api/prompts/{promptId}/versions");
+                    var versionsResponse = await Http.GetAsync($"api/prompts/{promptIdGuid}/versions");
                     if (versionsResponse.IsSuccessStatusCode)
                     {
                         allVersions = await versionsResponse.Content.ReadFromJsonAsync<List<Prompt>>() ?? new List<Prompt>();
                     }
                     
-                    SetMessage($"Prompt saved successfully! Version {currentPrompt.Version} created at {currentPrompt.UpdatedAt:g}", false);
+                    SetMessage($"Prompt saved successfully! Version {currentPrompt.Version} created at {currentPrompt.UpdatedAtDateTime:g}", false);
                 }
             }
             else

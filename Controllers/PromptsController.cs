@@ -33,7 +33,7 @@ public class PromptsController : ControllerBase
     }
 
     [HttpGet("{promptId}")]
-    public async Task<ActionResult<Prompt>> GetPrompt(string promptId)
+    public async Task<ActionResult<Prompt>> GetPrompt(Guid promptId)
     {
         try
         {
@@ -56,9 +56,9 @@ public class PromptsController : ControllerBase
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(prompt.PromptId))
+            if (prompt.PromptId == Guid.Empty)
             {
-                return BadRequest(new { error = "PromptId is required" });
+                prompt.PromptId = Guid.NewGuid();
             }
 
             if (string.IsNullOrWhiteSpace(prompt.Text))
@@ -92,7 +92,7 @@ public class PromptsController : ControllerBase
     }
 
     [HttpGet("{promptId}/history")]
-    public async Task<ActionResult<List<Prompt>>> GetPromptHistory(string promptId)
+    public async Task<ActionResult<List<Prompt>>> GetPromptHistory(Guid promptId)
     {
         try
         {
@@ -107,7 +107,7 @@ public class PromptsController : ControllerBase
     }
 
     [HttpGet("{promptId}/versions")]
-    public async Task<ActionResult<List<Prompt>>> GetAllPromptVersions(string promptId)
+    public async Task<ActionResult<List<Prompt>>> GetAllPromptVersions(Guid promptId)
     {
         try
         {
@@ -122,7 +122,7 @@ public class PromptsController : ControllerBase
     }
 
     [HttpGet("{promptId}/history/{version}")]
-    public async Task<ActionResult<Prompt>> GetPromptVersion(string promptId, int version)
+    public async Task<ActionResult<Prompt>> GetPromptVersion(Guid promptId, int version)
     {
         try
         {
@@ -141,15 +141,10 @@ public class PromptsController : ControllerBase
     }
 
     [HttpDelete("{promptId}")]
-    public async Task<ActionResult> DeletePrompt(string promptId)
+    public async Task<ActionResult> DeletePrompt(Guid promptId)
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(promptId))
-            {
-                return BadRequest(new { error = "PromptId is required" });
-            }
-
             var deleted = await _mongoDbService.DeletePromptAsync(promptId);
             if (!deleted)
             {
@@ -166,15 +161,10 @@ public class PromptsController : ControllerBase
     }
 
     [HttpPost("{promptId}/versions/{version}/set-active")]
-    public async Task<ActionResult> SetPromptActiveByVersion(string promptId, int version)
+    public async Task<ActionResult> SetPromptActiveByVersion(Guid promptId, int version)
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(promptId))
-            {
-                return BadRequest(new { error = "PromptId is required" });
-            }
-
             if (version <= 0)
             {
                 return BadRequest(new { error = "Version must be greater than 0" });
@@ -203,15 +193,10 @@ public class PromptsController : ControllerBase
     }
 
     [HttpPut("{promptId}/experimental")]
-    public async Task<ActionResult> SetPromptExperimental(string promptId, [FromBody] bool isExperimental)
+    public async Task<ActionResult> SetPromptExperimental(Guid promptId, [FromBody] bool isExperimental)
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(promptId))
-            {
-                return BadRequest(new { error = "PromptId is required" });
-            }
-
             // Verify the prompt exists
             var prompt = await _mongoDbService.GetPromptAsync(promptId);
             if (prompt == null)
@@ -235,15 +220,10 @@ public class PromptsController : ControllerBase
     }
 
     [HttpPut("{promptId}/versions/{version}/experimental")]
-    public async Task<ActionResult> SetPromptExperimentalByVersion(string promptId, int version, [FromBody] bool isExperimental)
+    public async Task<ActionResult> SetPromptExperimentalByVersion(Guid promptId, int version, [FromBody] bool isExperimental)
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(promptId))
-            {
-                return BadRequest(new { error = "PromptId is required" });
-            }
-
             if (version <= 0)
             {
                 return BadRequest(new { error = "Version must be greater than 0" });
@@ -272,15 +252,10 @@ public class PromptsController : ControllerBase
     }
 
     [HttpPut("{promptId}/deactivate-all")]
-    public async Task<ActionResult> DeactivateAllPromptVersions(string promptId)
+    public async Task<ActionResult> DeactivateAllPromptVersions(Guid promptId)
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(promptId))
-            {
-                return BadRequest(new { error = "PromptId is required" });
-            }
-
             // Verify at least one version exists
             var versions = await _mongoDbService.GetAllPromptVersionsAsync(promptId);
             if (versions == null || versions.Count == 0)
