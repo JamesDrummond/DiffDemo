@@ -57,10 +57,6 @@ public class MongoDbService : IMongoDbService
             // If there's an active version, archive it
             if (currentActivePrompt != null)
             {
-                currentActivePrompt.ArchivedAtDateTime = DateTime.UtcNow;
-                var archiveFilter = Builders<Prompt>.Filter.Eq(p => p.Id, currentActivePrompt.Id);
-                await _promptsCollection.ReplaceOneAsync(archiveFilter, currentActivePrompt);
-                
                 // Preserve IsExperimental from the active version
                 isExperimental = currentActivePrompt.IsExperimental;
             }
