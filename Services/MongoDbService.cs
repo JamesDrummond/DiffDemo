@@ -90,8 +90,7 @@ public class MongoDbService : IMongoDbService
     {
         // Get all archived versions of the prompt
         var filter = Builders<Prompt>.Filter.And(
-            Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId),
-            Builders<Prompt>.Filter.Ne(p => p.ArchivedAtDateTime, (DateTime?)null)
+            Builders<Prompt>.Filter.Eq(p => p.PromptId, promptId)
         );
         var sort = Builders<Prompt>.Sort.Descending(p => p.Version);
         return await _promptsCollection.Find(filter).Sort(sort).ToListAsync();
